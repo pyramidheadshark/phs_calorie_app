@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from calorie_app.api.deps import get_current_user
 from calorie_app.adapters.db.session import get_session
+from calorie_app.api.deps import get_current_user
 from calorie_app.core.domain import MealEntry, NutritionAnalysis, NutritionFacts, User, UserSettings
 from calorie_app.main import app
 
@@ -25,7 +25,9 @@ def _make_fake_user() -> User:
 def _make_fake_analysis() -> NutritionAnalysis:
     return NutritionAnalysis(
         description="Греческий йогурт",
-        nutrition=NutritionFacts(calories=150, protein_g=15.0, fat_g=3.0, carbs_g=10.0, portion_g=200),
+        nutrition=NutritionFacts(
+            calories=150, protein_g=15.0, fat_g=3.0, carbs_g=10.0, portion_g=200
+        ),
         confidence="high",
         notes="",
         gemini_raw={"description": "Греческий йогурт", "calories": 150},
@@ -37,10 +39,12 @@ def _make_saved_meal(user_id: int = 111222333) -> MealEntry:
         id=uuid.uuid4(),
         user_id=user_id,
         description="Греческий йогурт",
-        nutrition=NutritionFacts(calories=150, protein_g=15.0, fat_g=3.0, carbs_g=10.0, portion_g=200),
+        nutrition=NutritionFacts(
+            calories=150, protein_g=15.0, fat_g=3.0, carbs_g=10.0, portion_g=200
+        ),
         confidence="high",
         confirmed=True,
-        logged_at=datetime.now(timezone.utc),
+        logged_at=datetime.now(UTC),
     )
 
 
@@ -109,10 +113,12 @@ class TestPatchMeal:
             id=meal_id,
             user_id=111222333,
             description="Обновлённое описание",
-            nutrition=NutritionFacts(calories=200, protein_g=10.0, fat_g=5.0, carbs_g=25.0, portion_g=250),
+            nutrition=NutritionFacts(
+                calories=200, protein_g=10.0, fat_g=5.0, carbs_g=25.0, portion_g=250
+            ),
             confidence="medium",
             confirmed=True,
-            logged_at=datetime.now(timezone.utc),
+            logged_at=datetime.now(UTC),
         )
 
         with patch("calorie_app.api.meals.MealRepo") as MockRepo:
@@ -130,9 +136,7 @@ class TestPatchMeal:
         data = response.json()
         assert data["description"] == "Обновлённое описание"
 
-    async def test_update_meal_not_found(
-        self, client_with_overrides: AsyncClient
-    ) -> None:
+    async def test_update_meal_not_found(self, client_with_overrides: AsyncClient) -> None:
         meal_id = uuid.uuid4()
 
         with patch("calorie_app.api.meals.MealRepo") as MockRepo:
@@ -150,9 +154,7 @@ class TestPatchMeal:
 
 
 class TestPostMealConfirm:
-    async def test_confirm_saves_and_returns_meal(
-        self, client_with_overrides: AsyncClient
-    ) -> None:
+    async def test_confirm_saves_and_returns_meal(self, client_with_overrides: AsyncClient) -> None:
         saved = _make_saved_meal()
 
         with patch("calorie_app.api.meals.MealRepo") as MockRepo:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from calorie_app.config import settings
@@ -25,7 +25,7 @@ class PhotoStorage:
 
     def cleanup_old(self, max_age_hours: int | None = None) -> int:
         hours = max_age_hours or settings.photo_max_age_hours
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         deleted = 0
         for f in self._base_path.glob("*.jpg"):
             age_hours = (now.timestamp() - f.stat().st_mtime) / 3600

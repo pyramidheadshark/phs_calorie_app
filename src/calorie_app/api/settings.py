@@ -15,6 +15,7 @@ router = APIRouter(prefix="/api/user", tags=["settings"])
 
 def _settings_to_schema(s: object) -> UserSettingsSchema:
     from calorie_app.core.domain import UserSettings
+
     assert isinstance(s, UserSettings)
     return UserSettingsSchema(
         calorie_target=s.calorie_target,

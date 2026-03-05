@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,8 +24,22 @@ from calorie_app.models.schemas import (
 
 router = APIRouter(prefix="/api/meal", tags=["meals"])
 
+
+def _resolve_logged_at(dt: datetime | None) -> datetime:
+    if dt is None:
+        return datetime.now(UTC)
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic"}
-ALLOWED_AUDIO_TYPES = {"audio/ogg", "audio/mpeg", "audio/wav", "audio/aac", "audio/flac"}
+ALLOWED_AUDIO_TYPES = {
+    "audio/ogg",
+    "audio/mpeg",
+    "audio/wav",
+    "audio/aac",
+    "audio/flac",
+    "audio/webm",
+}
 MAX_FILE_BYTES = 10 * 1024 * 1024
 
 
@@ -95,7 +109,9 @@ async def analyze_voice(
     if len(audio_bytes) > MAX_FILE_BYTES:
         raise HTTPException(status_code=413, detail="Audio too large (max 10MB)")
 
-    analysis = await gemini_adapter.analyze_voice(audio_bytes, mime_type=file.content_type or "audio/ogg")
+    analysis = await gemini_adapter.analyze_voice(
+        audio_bytes, mime_type=file.content_type or "audio/ogg"
+    )
     return MealAnalysisResponse(
         description=analysis.description,
         nutrition=NutritionFactsSchema(
@@ -108,6 +124,46 @@ async def analyze_voice(
         confidence=analysis.confidence,
         notes=analysis.notes,
     )
+
+
+@router.post("/combo", response_model=MealAnalysisResponse)
+async def analyze_combo(
+    image: UploadFile = File(...),
+    audio: UploadFile = File(...),
+    current_user: User = Depends(check_ai_rate_limit),
+) -> MealAnalysisResponse:
+    if image.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=415, detail="Unsupported image type")
+    if audio.content_type not in ALLOWED_AUDIO_TYPES:
+        raise HTTPException(status_code=415, detail="Unsupported audio type")
+
+    image_bytes = await image.read()
+    audio_bytes = await audio.read()
+    if len(image_bytes) > MAX_FILE_BYTES or len(audio_bytes) > MAX_FILE_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (max 10MB)")
+
+    analysis = await gemini_adapter.analyze_combo(
+        image_bytes,
+        image.content_type or "image/jpeg",
+        audio_bytes,
+        audio.content_type or "audio/webm",
+    )
+    photo_path = photo_storage.save(image_bytes)
+
+    return {  # type: ignore[return-value]
+        "description": analysis.description,
+        "nutrition": {
+            "calories": analysis.nutrition.calories,
+            "protein_g": analysis.nutrition.protein_g,
+            "fat_g": analysis.nutrition.fat_g,
+            "carbs_g": analysis.nutrition.carbs_g,
+            "portion_g": analysis.nutrition.portion_g,
+        },
+        "confidence": analysis.confidence,
+        "notes": analysis.notes,
+        "photo_path": photo_path,
+        "gemini_raw": analysis.gemini_raw,
+    }
 
 
 @router.post("/confirm", response_model=MealResponse, status_code=status.HTTP_201_CREATED)
@@ -131,7 +187,7 @@ async def confirm_meal(
         photo_path=body.photo_path,
         gemini_raw=body.gemini_raw,
         confirmed=True,
-        logged_at=datetime.now(timezone.utc),
+        logged_at=_resolve_logged_at(body.logged_at),
     )
     saved = await repo.save(meal)
     return _meal_to_response(saved)

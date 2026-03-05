@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from calorie_app.core.domain import NutritionAnalysis, NutritionFacts, User, UserSettings
 

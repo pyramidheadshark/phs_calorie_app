@@ -11,7 +11,9 @@ from calorie_app.adapters.telegram import validate_init_data
 from calorie_app.core.domain import User
 
 
-async def get_db(session: AsyncSession = Depends(get_session)) -> AsyncGenerator[AsyncSession, None]:
+async def get_db(
+    session: AsyncSession = Depends(get_session),
+) -> AsyncGenerator[AsyncSession, None]:
     yield session
 
 

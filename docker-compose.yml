@@ -5,12 +5,19 @@ services:
     restart: unless-stopped
     env_file: .env
     ports:
-      - "8001:8000"
+      - "${APP_PORT:-8001}:8000"
     volumes:
       - photo_storage:/app/photos
+      - ./frontend/dist:/app/frontend/dist:ro
     depends_on:
       - postgres
       - redis
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   postgres:
     image: postgres:16-alpine
@@ -39,7 +46,9 @@ services:
     container_name: phs_calorie_worker
     restart: unless-stopped
     env_file: .env
-    command: ["celery", "-A", "calorie_app.worker.celery_app", "worker", "--loglevel=info"]
+    command: uv run celery -A calorie_app.worker.celery_app worker --loglevel=info
+    volumes:
+      - photo_storage:/app/photos
     depends_on:
       - redis
       - postgres
@@ -49,9 +58,24 @@ services:
     container_name: phs_calorie_beat
     restart: unless-stopped
     env_file: .env
-    command: ["celery", "-A", "calorie_app.worker.celery_app", "beat", "--loglevel=info"]
+    command: uv run celery -A calorie_app.worker.celery_app beat --loglevel=info
     depends_on:
       - redis
+
+  tunnel:
+    image: yuccastream/tuna:latest
+    container_name: phs_calorie_tunnel
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      api:
+        condition: service_healthy
+    entrypoint: ""
+    command: >
+      sh -c "
+        tuna config save-token $${TUNA_TOKEN};
+        tuna http api:8000 --subdomain=$${TUNA_SUBDOMAIN};
+      "
 
 volumes:
   postgres_data:

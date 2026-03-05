@@ -116,7 +116,9 @@ class GeminiAdapter:
         body = await self._post(payload, timeout=20.0)
         return self._parse_response(body["choices"][0]["message"]["content"])
 
-    async def analyze_voice(self, audio_bytes: bytes, mime_type: str = "audio/ogg") -> NutritionAnalysis:
+    async def analyze_voice(
+        self, audio_bytes: bytes, mime_type: str = "audio/ogg"
+    ) -> NutritionAnalysis:
         ext = mime_type.split("/")[-1]
         b64 = base64.b64encode(audio_bytes).decode()
 
@@ -137,6 +139,39 @@ class GeminiAdapter:
             "max_tokens": 500,
         }
 
+        body = await self._post(payload)
+        return self._parse_response(body["choices"][0]["message"]["content"])
+
+    async def analyze_combo(
+        self, image_bytes: bytes, image_mime: str, audio_bytes: bytes, audio_mime: str
+    ) -> NutritionAnalysis:
+        b64_img = base64.b64encode(image_bytes).decode()
+        b64_audio = base64.b64encode(audio_bytes).decode()
+        audio_ext = audio_mime.split(";")[0].split("/")[-1]  # "webm;codecs=opus" → "webm"
+        payload = {
+            "model": self._model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{image_mime};base64,{b64_img}"},
+                        },
+                        {
+                            "type": "input_audio",
+                            "input_audio": {"data": b64_audio, "format": audio_ext},
+                        },
+                        {
+                            "type": "text",
+                            "text": ANALYSIS_PROMPT
+                            + "\nДополнительное описание пользователя — в аудио выше.",
+                        },
+                    ],
+                }
+            ],
+            "max_tokens": 500,
+        }
         body = await self._post(payload)
         return self._parse_response(body["choices"][0]["message"]["content"])
 

@@ -30,7 +30,7 @@ celery_app.conf.beat_schedule = {
 }
 
 
-@celery_app.task(name="calorie_app.worker.cleanup_photos")
+@celery_app.task(name="calorie_app.worker.cleanup_photos")  # type: ignore[untyped-decorator]
 def cleanup_photos() -> int:
     from calorie_app.adapters.storage import photo_storage
 
@@ -39,7 +39,7 @@ def cleanup_photos() -> int:
     return deleted
 
 
-@celery_app.task(name="calorie_app.worker.send_daily_summaries")
+@celery_app.task(name="calorie_app.worker.send_daily_summaries")  # type: ignore[untyped-decorator]
 def send_daily_summaries() -> None:
     asyncio.run(_send_daily_summaries_async())
 
@@ -47,12 +47,13 @@ def send_daily_summaries() -> None:
 async def _send_daily_summaries_async() -> None:
     from datetime import date
 
+    from sqlalchemy import select
+
+    from calorie_app.adapters.db.models import UserModel
     from calorie_app.adapters.db.repos import MealRepo
     from calorie_app.adapters.db.session import async_session_factory
-    from calorie_app.adapters.db.models import UserModel
     from calorie_app.adapters.telegram import telegram_bot
     from calorie_app.core.domain import DailyLog
-    from sqlalchemy import select
 
     today = date.today()
 

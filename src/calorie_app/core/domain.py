@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 
 
@@ -64,7 +64,7 @@ class User:
     username: str | None = None
     first_name: str | None = None
     settings: UserSettings = field(default_factory=UserSettings)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 Confidence = Literal["high", "medium", "low"]
@@ -89,8 +89,8 @@ class MealEntry:
     confidence: Confidence = "high"
     gemini_raw: dict = field(default_factory=dict)  # type: ignore[type-arg]
     confirmed: bool = True
-    logged_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    logged_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -105,7 +105,7 @@ class RecipeEntry:
     equipment_used: list[str]
     id: uuid.UUID = field(default_factory=uuid.uuid4)
     liked: bool | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass

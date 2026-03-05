@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from calorie_app.api.deps import get_current_user
 from calorie_app.adapters.db.session import get_session
+from calorie_app.api.deps import get_current_user
 from calorie_app.core.domain import MealEntry, NutritionFacts, User, UserSettings
 from calorie_app.main import app
 
@@ -78,10 +78,12 @@ class TestGetDailyLog:
         meal = MealEntry(
             user_id=999888777,
             description="Борщ",
-            nutrition=NutritionFacts(calories=300, protein_g=12.0, fat_g=8.0, carbs_g=40.0, portion_g=400),
+            nutrition=NutritionFacts(
+                calories=300, protein_g=12.0, fat_g=8.0, carbs_g=40.0, portion_g=400
+            ),
             confidence="high",
             confirmed=True,
-            logged_at=datetime(2026, 3, 4, 12, 0, 0, tzinfo=timezone.utc),
+            logged_at=datetime(2026, 3, 4, 12, 0, 0, tzinfo=UTC),
         )
         with patch("calorie_app.api.logs.MealRepo") as MockRepo:
             MockRepo.return_value.get_by_date = AsyncMock(return_value=[meal])

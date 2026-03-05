@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -144,8 +144,8 @@ class MealRepo:
         return _meal_from_model(model)
 
     async def get_by_date(self, user_id: int, log_date: date) -> list[MealEntry]:
-        start = datetime(log_date.year, log_date.month, log_date.day, 0, 0, 0, tzinfo=timezone.utc)
-        end = datetime(log_date.year, log_date.month, log_date.day, 23, 59, 59, tzinfo=timezone.utc)
+        start = datetime(log_date.year, log_date.month, log_date.day, 0, 0, 0, tzinfo=UTC)
+        end = datetime(log_date.year, log_date.month, log_date.day, 23, 59, 59, tzinfo=UTC)
         result = await self._session.execute(
             select(MealEntryModel)
             .where(
@@ -215,7 +215,7 @@ class MealRepo:
             model.carbs_g = nutrition.carbs_g
             model.portion_g = nutrition.portion_g
         if confidence is not None:
-            model.confidence = confidence  # type: ignore[assignment]
+            model.confidence = confidence
         await self._session.commit()
         await self._session.refresh(model)
         return _meal_from_model(model)
@@ -231,6 +231,129 @@ class MealRepo:
         )
         await self._session.commit()
         return result.scalar_one_or_none() is not None
+
+    async def get_analytics(self, user_id: int, calorie_target: int, days: int = 30) -> dict:  # type: ignore[type-arg]
+        from collections import defaultdict
+        from datetime import timedelta
+
+        cutoff = datetime.now(UTC) - timedelta(days=days)
+        trend_cutoff = datetime.now(UTC) - timedelta(days=14)
+
+        # Daily totals (last 30 days) — used for weekday pattern + adherence
+        daily_result = await self._session.execute(
+            select(
+                func.date(MealEntryModel.logged_at).label("d"),
+                func.sum(MealEntryModel.calories).label("calories"),
+            )
+            .where(
+                MealEntryModel.user_id == user_id,
+                MealEntryModel.confirmed.is_(True),
+                MealEntryModel.logged_at >= cutoff,
+            )
+            .group_by(func.date(MealEntryModel.logged_at))
+        )
+        daily_rows = daily_result.all()
+
+        # Calorie trend (last 14 days)
+        trend_result = await self._session.execute(
+            select(
+                func.date(MealEntryModel.logged_at).label("d"),
+                func.sum(MealEntryModel.calories).label("calories"),
+            )
+            .where(
+                MealEntryModel.user_id == user_id,
+                MealEntryModel.confirmed.is_(True),
+                MealEntryModel.logged_at >= trend_cutoff,
+            )
+            .group_by(func.date(MealEntryModel.logged_at))
+            .order_by(func.date(MealEntryModel.logged_at))
+        )
+        calorie_trend = [
+            {"date": str(r.d), "calories": int(r.calories or 0)} for r in trend_result.all()
+        ]
+
+        # Macro totals (for split)
+        macro_result = await self._session.execute(
+            select(
+                func.sum(MealEntryModel.protein_g).label("p"),
+                func.sum(MealEntryModel.fat_g).label("f"),
+                func.sum(MealEntryModel.carbs_g).label("c"),
+            ).where(
+                MealEntryModel.user_id == user_id,
+                MealEntryModel.confirmed.is_(True),
+                MealEntryModel.logged_at >= cutoff,
+            )
+        )
+        mr = macro_result.one()
+        p_cal = float(mr.p or 0) * 4
+        f_cal = float(mr.f or 0) * 9
+        c_cal = float(mr.c or 0) * 4
+        total_macro_cal = (p_cal + f_cal + c_cal) or 1
+        macro_split = {
+            "protein_pct": round(p_cal / total_macro_cal * 100),
+            "fat_pct": round(f_cal / total_macro_cal * 100),
+            "carbs_pct": round(c_cal / total_macro_cal * 100),
+        }
+
+        # Weekday pattern (0=Mon … 6=Sun via Python date.weekday())
+        dow = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+        weekday_buckets: dict[int, list[int]] = defaultdict(list)
+        for row in daily_rows:
+            weekday_buckets[row.d.weekday()].append(int(row.calories or 0))
+        weekday_avg = {
+            dow[i]: round(sum(v) / len(v)) if v else 0 for i, v in weekday_buckets.items()
+        }
+
+        # Top meals by frequency
+        desc_result = await self._session.execute(
+            select(MealEntryModel.description, MealEntryModel.calories).where(
+                MealEntryModel.user_id == user_id,
+                MealEntryModel.confirmed.is_(True),
+                MealEntryModel.logged_at >= cutoff,
+            )
+        )
+        groups: dict[str, dict] = {}  # type: ignore[type-arg]
+        for row in desc_result.all():
+            key = (row.description or "")[:60].lower().strip()
+            if key not in groups:
+                groups[key] = {"description": row.description, "cals": [], "count": 0}
+            groups[key]["cals"].append(row.calories or 0)
+            groups[key]["count"] += 1
+        top_meals = sorted(
+            [
+                {
+                    "description": v["description"],
+                    "avg_calories": round(sum(v["cals"]) / len(v["cals"])),
+                    "count": v["count"],
+                }
+                for v in groups.values()
+            ],
+            key=lambda x: x["count"],
+            reverse=True,
+        )[:5]
+
+        # Summary stats
+        total_days = len(daily_rows)
+        avg_daily = (
+            round(sum(int(r.calories or 0) for r in daily_rows) / total_days) if total_days else 0
+        )
+        adherent = sum(
+            1
+            for r in daily_rows
+            if calorie_target > 0
+            and 0.8 * calorie_target <= int(r.calories or 0) <= 1.2 * calorie_target
+        )
+        adherence_pct = round(adherent / total_days * 100) if total_days else 0
+
+        return {
+            "calorie_trend": calorie_trend,
+            "macro_split": macro_split,
+            "weekday_avg": weekday_avg,
+            "top_meals": top_meals,
+            "avg_daily_calories": avg_daily,
+            "goal_adherence_pct": adherence_pct,
+            "total_days": total_days,
+        }
 
     async def get_weekly_summary(self, user_id: int) -> list[dict]:  # type: ignore[type-arg]
         result = await self._session.execute(
@@ -309,7 +432,9 @@ class RecipeRepo:
         await self._session.refresh(model)
         return _recipe_from_model(model)
 
-    async def set_feedback(self, recipe_id: uuid.UUID, user_id: int, liked: bool) -> RecipeEntry | None:
+    async def set_feedback(
+        self, recipe_id: uuid.UUID, user_id: int, liked: bool
+    ) -> RecipeEntry | None:
         result = await self._session.execute(
             select(RecipeModel).where(
                 RecipeModel.id == recipe_id,

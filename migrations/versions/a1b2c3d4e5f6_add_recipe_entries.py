@@ -5,10 +5,11 @@ Revises: 27ef6849b285
 Create Date: 2026-01-29 12:00:00.000000
 
 """
+
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision = "a1b2c3d4e5f6"
@@ -21,7 +22,12 @@ def upgrade() -> None:
     op.create_table(
         "recipe_entries",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("user_id", sa.BigInteger(), sa.ForeignKey("users.telegram_id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "user_id",
+            sa.BigInteger(),
+            sa.ForeignKey("users.telegram_id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("title", sa.Text(), nullable=False),
         sa.Column("description", sa.Text(), server_default=""),
         sa.Column("ingredients", postgresql.JSONB(), server_default="[]"),

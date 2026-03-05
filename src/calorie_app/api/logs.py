@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from calorie_app.adapters.db.repos import MealRepo
 from calorie_app.adapters.db.session import get_session
 from calorie_app.api.deps import get_current_user
-from calorie_app.core.domain import DailyLog, User
 from calorie_app.core.calculator import compute_streak
+from calorie_app.core.domain import DailyLog, User
 from calorie_app.models.schemas import (
     DailyLogResponse,
     HistoryDaySchema,

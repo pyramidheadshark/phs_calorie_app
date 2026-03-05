@@ -1,0 +1,158 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        var(--tg-theme-bg-color,           #F7F7F7);
+  --bg2:       var(--tg-theme-secondary-bg-color,  #FFFFFF);
+  --text:      var(--tg-theme-text-color,          #1C1C1E);
+  --muted:     var(--tg-theme-hint-color,          #8E8E93);
+  --accent:    var(--tg-theme-button-color,        #007AFF);
+  --accent-t:  var(--tg-theme-button-text-color,   #FFFFFF);
+  --link:      var(--tg-theme-link-color,          #007AFF);
+  --border:    rgba(0,0,0,.08);
+  --green:  #34C759;
+  --orange: #FF9F0A;
+  --blue:   #007AFF;
+  --red:    #FF3B30;
+  --r:      14px;
+  --nav-h:  64px;
+}
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollable page area above nav */
+.page {
+  min-height: calc(100dvh - var(--nav-h));
+  padding: 16px 16px calc(var(--nav-h) + 16px);
+  overflow-y: auto;
+}
+
+/* Cards */
+.card {
+  background: var(--bg2);
+  border-radius: var(--r);
+  padding: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+
+/* Section label */
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 20px 0 8px;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 12px 20px;
+  transition: opacity .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active { opacity: .75; }
+.btn-primary { background: var(--accent); color: var(--accent-t); width: 100%; }
+.btn-secondary { background: var(--bg); color: var(--accent); border: 1.5px solid var(--accent); }
+.btn-ghost { background: transparent; color: var(--muted); }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-sm { padding: 8px 14px; font-size: 13px; border-radius: 10px; }
+
+/* Inputs */
+.input {
+  width: 100%;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 15px;
+  color: var(--text);
+  outline: none;
+  transition: border-color .2s;
+}
+.input:focus { border-color: var(--accent); }
+textarea.input { resize: none; }
+
+/* Tabs */
+.tabs {
+  display: flex;
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 3px;
+  gap: 2px;
+}
+.tab {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.tab.active {
+  background: var(--bg2);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+
+/* Chips */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.chip-green  { background: rgba(52,199,89,.12);  color: var(--green); }
+.chip-orange { background: rgba(255,159,10,.12); color: var(--orange); }
+.chip-blue   { background: rgba(0,122,255,.12);  color: var(--blue); }
+.chip-red    { background: rgba(255,59,48,.12);  color: var(--red); }
+.chip-muted  { background: var(--bg); color: var(--muted); }
+
+/* Spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 20px; height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  flex-shrink: 0;
+}
+
+/* Divider */
+.divider { height: 1px; background: var(--border); margin: 12px 0; }
+
+/* Empty state */
+.empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+}
+.empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+/* Number tabular */
+.num { font-variant-numeric: tabular-nums; }

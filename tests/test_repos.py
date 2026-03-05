@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 
 from calorie_app.adapters.db.repos import MealRepo
-from calorie_app.core.domain import MealEntry, NutritionFacts
+from calorie_app.core.domain import NutritionFacts
 
 
 def _make_meal_model(
@@ -29,8 +27,8 @@ def _make_meal_model(
     model.confidence = "medium"
     model.gemini_raw = {}
     model.confirmed = True
-    model.logged_at = datetime.now(timezone.utc)
-    model.created_at = datetime.now(timezone.utc)
+    model.logged_at = datetime.now(UTC)
+    model.created_at = datetime.now(UTC)
     return model
 
 
@@ -72,7 +70,9 @@ class TestMealRepoUpdate:
         mock_session.refresh = AsyncMock(side_effect=lambda m: None)
 
         repo = MealRepo(mock_session)
-        new_nutrition = NutritionFacts(calories=500, protein_g=25.0, fat_g=15.0, carbs_g=55.0, portion_g=400)
+        new_nutrition = NutritionFacts(
+            calories=500, protein_g=25.0, fat_g=15.0, carbs_g=55.0, portion_g=400
+        )
         result = await repo.update(meal_id, user_id=123, nutrition=new_nutrition)
 
         assert result is not None

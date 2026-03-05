@@ -4,9 +4,7 @@ from calorie_app.core.domain import DailyLog, NutritionFacts, UserSettings
 
 
 def macro_percentages(nutrition: NutritionFacts) -> dict[str, float]:
-    total_kcal = (
-        nutrition.protein_g * 4 + nutrition.fat_g * 9 + nutrition.carbs_g * 4
-    )
+    total_kcal = nutrition.protein_g * 4 + nutrition.fat_g * 9 + nutrition.carbs_g * 4
     if total_kcal == 0:
         return {"protein": 0.0, "fat": 0.0, "carbs": 0.0}
     return {

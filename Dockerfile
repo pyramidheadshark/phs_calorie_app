@@ -13,5 +13,7 @@ COPY pyproject.toml ./
 RUN uv sync --no-dev
 
 COPY src/ ./src/
+COPY alembic.ini ./
+COPY migrations/ ./migrations/
 
-CMD ["uvicorn", "calorie_app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "calorie_app.main:app", "--host", "0.0.0.0", "--port", "8000"]

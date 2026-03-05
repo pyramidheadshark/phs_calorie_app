@@ -26,14 +26,12 @@ def validate_init_data(init_data: str) -> dict:  # type: ignore[type-arg]
     secret_key = hmac.new(
         b"WebAppData", settings.telegram_bot_token.encode(), hashlib.sha256
     ).digest()
-    expected_hash = hmac.new(
-        secret_key, data_check_string.encode(), hashlib.sha256
-    ).hexdigest()
+    expected_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
 
     if not hmac.compare_digest(expected_hash, received_hash):
         raise ValueError("Invalid initData signature")
 
-    return json.loads(parsed["user"])
+    return dict(json.loads(parsed["user"]))
 
 
 class TelegramBot:
@@ -94,6 +92,26 @@ class TelegramBot:
         )
         return await self.send_reminder(chat_id, text)
 
+    async def set_menu_button(self, url: str, text: str = "Дневник") -> bool:
+        """Set persistent menu button for all users (opens Mini App)."""
+        payload = {
+            "menu_button": {
+                "type": "web_app",
+                "text": text,
+                "web_app": {"url": url},
+            }
+        }
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            try:
+                resp = await client.post(self._url("setChatMenuButton"), json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+                logger.info("Menu button set: %s", data.get("description", data))
+                return bool(data.get("result", False))
+            except httpx.HTTPError as e:
+                logger.error("setChatMenuButton failed: %s", e)
+                return False
+
     async def set_webhook(self, webhook_url: str) -> bool:
         payload = {
             "url": webhook_url,
@@ -106,7 +124,7 @@ class TelegramBot:
                 resp.raise_for_status()
                 data = resp.json()
                 logger.info("Webhook set: %s", data.get("description"))
-                return data.get("ok", False)
+                return bool(data.get("ok", False))
             except httpx.HTTPError as e:
                 logger.error("setWebhook failed: %s", e)
                 return False

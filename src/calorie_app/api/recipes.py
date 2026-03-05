@@ -20,7 +20,9 @@ def _recipe_to_schema(r: RecipeEntry) -> RecipeResponse:
         id=r.id,
         title=r.title,
         description=r.description,
-        ingredients=[{"name": i.get("name", ""), "amount": i.get("amount", "")} for i in r.ingredients],
+        ingredients=[
+            {"name": i.get("name", ""), "amount": i.get("amount", "")} for i in r.ingredients
+        ],
         instructions=r.instructions,
         nutrition_estimate={
             "calories": r.nutrition_estimate.calories,

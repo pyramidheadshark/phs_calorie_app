@@ -28,6 +28,7 @@ class MealConfirmRequest(BaseModel):
     confidence: Literal["high", "medium", "low"] = "high"
     photo_path: str | None = None
     gemini_raw: dict = Field(default_factory=dict)  # type: ignore[type-arg]
+    logged_at: datetime | None = None  # если None — текущее время UTC
 
 
 class MealResponse(BaseModel):
