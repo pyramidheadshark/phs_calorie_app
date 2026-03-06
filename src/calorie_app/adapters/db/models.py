@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, ForeignKey, Integer, Numeric, Text, func
+from sqlalchemy import BigInteger, Boolean, ForeignKey, Index, Integer, Numeric, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -26,6 +26,7 @@ class UserModel(Base):
 
 class MealEntryModel(Base):
     __tablename__ = "meal_entries"
+    __table_args__ = (Index("idx_meal_entries_user_date", "user_id", "logged_at"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[int] = mapped_column(
@@ -49,6 +50,7 @@ class MealEntryModel(Base):
 
 class RecipeModel(Base):
     __tablename__ = "recipe_entries"
+    __table_args__ = (Index("ix_recipe_entries_user_id", "user_id"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[int] = mapped_column(

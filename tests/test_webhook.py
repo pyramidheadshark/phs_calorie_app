@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
-import pytest
 from httpx import ASGITransport, AsyncClient
 
 from calorie_app.config import settings

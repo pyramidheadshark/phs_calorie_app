@@ -73,9 +73,7 @@ class TestAnalyzePhotoPath:
         assert data["confidence"] == "high"
 
     async def test_unsupported_image_type_returns_415(self) -> None:
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/meal/photo-path",
                 files={"file": ("doc.pdf", b"%PDF", "application/pdf")},
@@ -120,9 +118,7 @@ class TestAnalyzeVoice:
         assert data["nutrition"]["calories"] == 400
 
     async def test_unsupported_audio_type_returns_415(self) -> None:
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/meal/voice",
                 files={"file": ("note.mp4", b"\x00\x00\x00", "video/mp4")},

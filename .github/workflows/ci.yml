@@ -72,6 +72,7 @@ jobs:
           ENVIRONMENT: test
           POSTGRES_SYNC_URL: postgresql+psycopg2://calorie:secret@localhost:5432/calorie_test
           POSTGRES_URL: postgresql+asyncpg://calorie:secret@localhost:5432/calorie_test
+          PHOTO_STORAGE_PATH: /tmp/photos
         run: uv run pytest --cov=src --cov-report=xml --cov-fail-under=70
 
       - uses: codecov/codecov-action@v4
@@ -136,6 +137,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - run: npm ci
+      - run: npm run test:coverage
       - run: npm run build
 
   docker-build:

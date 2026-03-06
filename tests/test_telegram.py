@@ -34,8 +34,6 @@ class TestValidateInitData:
             validate_init_data(init_data)
 
     def test_invalid_hash_raises(self) -> None:
-        init_data = _make_init_data() + "&hash=deadbeef"
-        # replace the real hash with a fake suffix — but _make_init_data already has hash in query
         # build manually with wrong hash
         user_json = json.dumps({"id": 1, "first_name": "X"}, separators=(",", ":"))
         params = {"auth_date": "1700000000", "user": user_json, "hash": "badhash123"}

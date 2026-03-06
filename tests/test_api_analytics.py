@@ -51,7 +51,8 @@ def client_with_overrides(mock_db_session: AsyncMock) -> AsyncClient:
 
     app.dependency_overrides[get_current_user] = override_user
     app.dependency_overrides[get_session] = override_session
-    return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+    yield AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+    app.dependency_overrides.clear()
 
 
 class TestGetAnalytics:

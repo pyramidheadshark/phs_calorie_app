@@ -10,4 +10,16 @@ export default defineConfig({
       '/health': 'http://localhost:8010',
     },
   },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './src/test/setup.js',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      include: ['src/**/*.{js,jsx}'],
+      exclude: ['src/main.jsx', 'src/test/**'],
+      thresholds: { lines: 45, functions: 25, branches: 30 },
+    },
+  },
 })

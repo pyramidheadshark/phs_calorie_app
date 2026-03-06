@@ -60,7 +60,8 @@ def client_with_overrides(mock_db_session: AsyncMock) -> AsyncClient:
 
     app.dependency_overrides[get_current_user] = override_user
     app.dependency_overrides[get_session] = override_session
-    return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+    yield AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+    app.dependency_overrides.clear()
 
 
 class TestGetRecipeHistory:
@@ -73,9 +74,7 @@ class TestGetRecipeHistory:
 
         with patch("calorie_app.api.recipes.RecipeRepo", return_value=MockRepo()):
             async with client_with_overrides as client:
-                resp = await client.get(
-                    "/api/recipes", headers={"x-telegram-init-data": "test"}
-                )
+                resp = await client.get("/api/recipes", headers={"x-telegram-init-data": "test"})
 
         assert resp.status_code == 200
         data = resp.json()
@@ -91,9 +90,7 @@ class TestGetRecipeHistory:
 
         with patch("calorie_app.api.recipes.RecipeRepo", return_value=MockRepo()):
             async with client_with_overrides as client:
-                resp = await client.get(
-                    "/api/recipes", headers={"x-telegram-init-data": "test"}
-                )
+                resp = await client.get("/api/recipes", headers={"x-telegram-init-data": "test"})
 
         assert resp.status_code == 200
         assert resp.json() == []
@@ -174,9 +171,7 @@ class TestSetRecipeFeedback:
 
     async def test_recipe_not_found(self, client_with_overrides: AsyncClient) -> None:
         class MockRepo:
-            async def set_feedback(
-                self, recipe_id: uuid.UUID, user_id: int, liked: bool
-            ) -> None:
+            async def set_feedback(self, recipe_id: uuid.UUID, user_id: int, liked: bool) -> None:
                 return None
 
         with patch("calorie_app.api.recipes.RecipeRepo", return_value=MockRepo()):
