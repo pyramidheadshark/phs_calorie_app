@@ -48,7 +48,16 @@ class GeminiAdapter:
             cleaned = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
         return cleaned
 
-    def _parse_response(self, content: str) -> NutritionAnalysis:
+    def _parse_response(self, content: str | None) -> NutritionAnalysis:
+        if content is None:
+            logger.warning("Gemini returned null content")
+            return NutritionAnalysis(
+                description="Не удалось распознать блюдо",
+                nutrition=NutritionFacts(),
+                confidence="low",
+                notes="Пустой ответ от AI",
+                gemini_raw={},
+            )
         try:
             cleaned = self._strip_fences(content)
             data = json.loads(cleaned)

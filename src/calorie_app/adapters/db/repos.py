@@ -168,26 +168,44 @@ class MealRepo:
         )
         return [str(row.log_date) for row in result.all()]
 
-    async def get_history_summary(self, user_id: int, days: int = 90) -> list[dict]:  # type: ignore[type-arg]
-        result = await self._session.execute(
+    async def get_history_summary(
+        self, user_id: int, limit: int = 30, offset: int = 0
+    ) -> tuple[list[dict], int]:  # type: ignore[type-arg]
+        base_where = (
+            MealEntryModel.user_id == user_id,
+            MealEntryModel.confirmed.is_(True),
+        )
+        count_result = await self._session.execute(
+            select(func.count().label("n")).select_from(
+                select(func.date(MealEntryModel.logged_at))
+                .where(*base_where)
+                .group_by(func.date(MealEntryModel.logged_at))
+                .subquery()
+            )
+        )
+        total: int = count_result.scalar_one() or 0
+
+        rows_result = await self._session.execute(
             select(
                 func.date(MealEntryModel.logged_at).label("log_date"),
                 func.count(MealEntryModel.id).label("meal_count"),
                 func.sum(MealEntryModel.calories).label("calories"),
             )
-            .where(MealEntryModel.user_id == user_id, MealEntryModel.confirmed.is_(True))
+            .where(*base_where)
             .group_by(func.date(MealEntryModel.logged_at))
             .order_by(func.date(MealEntryModel.logged_at).desc())
-            .limit(days)
+            .limit(limit)
+            .offset(offset)
         )
-        return [
+        rows = [
             {
                 "date": str(row.log_date),
                 "meal_count": int(row.meal_count),
                 "calories": int(row.calories or 0),
             }
-            for row in result.all()
+            for row in rows_result.all()
         ]
+        return rows, total
 
     async def update(
         self,

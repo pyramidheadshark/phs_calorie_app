@@ -110,29 +110,38 @@ class TestPromptConstants:
         assert "борщ со сметаной" in filled
 
 
+def _make_mock_client(content: str) -> AsyncMock:
+    """Build a mock httpx.AsyncClient that returns the given JSON content string."""
+    mock_response = MagicMock()
+    mock_response.raise_for_status = MagicMock()
+    mock_response.json.return_value = {"choices": [{"message": {"content": content}}]}
+    mock_client = AsyncMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client.post = AsyncMock(return_value=mock_response)
+    return mock_client
+
+
+_NUTRITION_JSON = json.dumps(
+    {
+        "description": "Гречка с курицей",
+        "calories": 400,
+        "protein_g": 30.0,
+        "fat_g": 10.0,
+        "carbs_g": 45.0,
+        "portion_g": 350,
+        "confidence": "medium",
+        "notes": "",
+    }
+)
+
+
 class TestAnalyzeText:
     async def test_returns_nutrition(self, adapter: GeminiAdapter) -> None:
-        mock_data = {
-            "description": "Гречка с курицей",
-            "calories": 400,
-            "protein_g": 30.0,
-            "fat_g": 10.0,
-            "carbs_g": 45.0,
-            "portion_g": 350,
-            "confidence": "medium",
-            "notes": "",
-        }
-        mock_response = MagicMock()
-        mock_response.raise_for_status = MagicMock()
-        mock_response.json.return_value = {
-            "choices": [{"message": {"content": json.dumps(mock_data)}}]
-        }
-        mock_client = AsyncMock()
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-        mock_client.post = AsyncMock(return_value=mock_response)
-
-        with patch("calorie_app.adapters.gemini.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "calorie_app.adapters.gemini.httpx.AsyncClient",
+            return_value=_make_mock_client(_NUTRITION_JSON),
+        ):
             result = await adapter.analyze_text("гречка с курицей 350г")
 
         assert result.description == "Гречка с курицей"
@@ -154,3 +163,179 @@ class TestAnalyzeText:
         with patch("calorie_app.adapters.gemini.httpx.AsyncClient", return_value=mock_client):
             with pytest.raises(httpx.HTTPStatusError):
                 await adapter.analyze_text("борщ")
+
+
+class TestAnalyzePhoto:
+    async def test_returns_nutrition(self, adapter: GeminiAdapter) -> None:
+        with patch(
+            "calorie_app.adapters.gemini.httpx.AsyncClient",
+            return_value=_make_mock_client(_NUTRITION_JSON),
+        ):
+            result = await adapter.analyze_photo(b"fakebytes", mime_type="image/jpeg")
+
+        assert result.nutrition.calories == 400
+        assert result.confidence == "medium"
+
+    async def test_context_appended_to_prompt(self, adapter: GeminiAdapter) -> None:
+        mock_client = _make_mock_client(_NUTRITION_JSON)
+        with patch("calorie_app.adapters.gemini.httpx.AsyncClient", return_value=mock_client):
+            await adapter.analyze_photo(b"img", mime_type="image/png", context="это пицца")
+
+        call_kwargs = mock_client.post.call_args.kwargs
+        payload = call_kwargs.get("json", call_kwargs.get("data", {}))
+        text_part = next(
+            p for p in payload["messages"][0]["content"] if p["type"] == "text"
+        )
+        assert "это пицца" in text_part["text"]
+
+    async def test_uses_data_url(self, adapter: GeminiAdapter) -> None:
+        mock_client = _make_mock_client(_NUTRITION_JSON)
+        with patch("calorie_app.adapters.gemini.httpx.AsyncClient", return_value=mock_client):
+            await adapter.analyze_photo(b"img", mime_type="image/webp")
+
+        payload = mock_client.post.call_args.kwargs.get("json", {})
+        image_part = next(
+            p for p in payload["messages"][0]["content"] if p["type"] == "image_url"
+        )
+        assert image_part["image_url"]["url"].startswith("data:image/webp;base64,")
+
+
+class TestAnalyzeVoice:
+    async def test_returns_nutrition(self, adapter: GeminiAdapter) -> None:
+        with patch(
+            "calorie_app.adapters.gemini.httpx.AsyncClient",
+            return_value=_make_mock_client(_NUTRITION_JSON),
+        ):
+            result = await adapter.analyze_voice(b"audiobytes", mime_type="audio/ogg")
+
+        assert result.nutrition.calories == 400
+
+    async def test_audio_format_extracted_from_mime(self, adapter: GeminiAdapter) -> None:
+        mock_client = _make_mock_client(_NUTRITION_JSON)
+        with patch("calorie_app.adapters.gemini.httpx.AsyncClient", return_value=mock_client):
+            await adapter.analyze_voice(b"audiobytes", mime_type="audio/mpeg")
+
+        payload = mock_client.post.call_args.kwargs.get("json", {})
+        audio_part = next(
+            p for p in payload["messages"][0]["content"] if p["type"] == "input_audio"
+        )
+        assert audio_part["input_audio"]["format"] == "mpeg"
+
+
+class TestAnalyzeCombo:
+    async def test_returns_nutrition(self, adapter: GeminiAdapter) -> None:
+        with patch(
+            "calorie_app.adapters.gemini.httpx.AsyncClient",
+            return_value=_make_mock_client(_NUTRITION_JSON),
+        ):
+            result = await adapter.analyze_combo(
+                b"img", "image/jpeg", b"audio", "audio/webm"
+            )
+
+        assert result.nutrition.calories == 400
+
+    async def test_payload_has_image_audio_and_text(self, adapter: GeminiAdapter) -> None:
+        mock_client = _make_mock_client(_NUTRITION_JSON)
+        with patch("calorie_app.adapters.gemini.httpx.AsyncClient", return_value=mock_client):
+            await adapter.analyze_combo(b"img", "image/jpeg", b"aud", "audio/webm")
+
+        payload = mock_client.post.call_args.kwargs.get("json", {})
+        content = payload["messages"][0]["content"]
+        types = {p["type"] for p in content}
+        assert types == {"image_url", "input_audio", "text"}
+
+
+class TestParseProfile:
+    async def test_returns_parsed_dict(self, adapter: GeminiAdapter) -> None:
+        profile_data = {
+            "calorie_target": 1800,
+            "protein_target_g": 130,
+            "fat_target_g": 60,
+            "carbs_target_g": 200,
+            "goal_description": "похудение",
+            "kitchen_equipment": ["духовка"],
+            "food_preferences": "без глютена",
+            "body_data": {},
+        }
+        with patch(
+            "calorie_app.adapters.gemini.httpx.AsyncClient",
+            return_value=_make_mock_client(json.dumps(profile_data)),
+        ):
+            result = await adapter.parse_profile("рост 170, вес 80, цель похудеть")
+
+        assert result["calorie_target"] == 1800
+        assert result["goal_description"] == "похудение"
+
+    async def test_strips_fences_before_parse(self, adapter: GeminiAdapter) -> None:
+        profile_data = {"calorie_target": 2000, "protein_target_g": 120}
+        fenced = f"```json\n{json.dumps(profile_data)}\n```"
+        with patch(
+            "calorie_app.adapters.gemini.httpx.AsyncClient",
+            return_value=_make_mock_client(fenced),
+        ):
+            result = await adapter.parse_profile("профиль")
+
+        assert result["calorie_target"] == 2000
+
+
+class TestGenerateRecipe:
+    async def test_returns_recipe_entry(self, adapter: GeminiAdapter) -> None:
+        recipe_data = {
+            "title": "Гречка с овощами",
+            "description": "Лёгкий ужин",
+            "ingredients": [{"name": "гречка", "amount": "100г"}],
+            "instructions": ["Сварить гречку", "Добавить овощи"],
+            "nutrition_estimate": {
+                "calories": 350,
+                "protein_g": 12.0,
+                "fat_g": 5.0,
+                "carbs_g": 60.0,
+                "portion_g": 300,
+            },
+            "cooking_time_min": 20,
+            "equipment_used": ["кастрюля"],
+        }
+        with patch(
+            "calorie_app.adapters.gemini.httpx.AsyncClient",
+            return_value=_make_mock_client(json.dumps(recipe_data)),
+        ):
+            result = await adapter.generate_recipe(
+                user_id=123,
+                goal="похудение",
+                calorie_target=1800,
+                protein_g=130,
+                fat_g=60,
+                carbs_g=200,
+                preferences="без глютена",
+                equipment=["кастрюля"],
+                liked_titles=["борщ"],
+                disliked_titles=["пицца"],
+            )
+
+        assert result.title == "Гречка с овощами"
+        assert result.nutrition_estimate.calories == 350
+        assert result.cooking_time_min == 20
+        assert result.user_id == 123
+
+    async def test_defaults_on_missing_fields(self, adapter: GeminiAdapter) -> None:
+        minimal = {"title": "Суп", "nutrition_estimate": {}}
+        with patch(
+            "calorie_app.adapters.gemini.httpx.AsyncClient",
+            return_value=_make_mock_client(json.dumps(minimal)),
+        ):
+            result = await adapter.generate_recipe(
+                user_id=1,
+                goal="",
+                calorie_target=2000,
+                protein_g=120,
+                fat_g=70,
+                carbs_g=250,
+                preferences="",
+                equipment=[],
+                liked_titles=[],
+                disliked_titles=[],
+            )
+
+        assert result.title == "Суп"
+        assert result.nutrition_estimate.calories == 0
+        assert result.cooking_time_min == 30

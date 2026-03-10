@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from calorie_app.adapters.db.session import engine
+from calorie_app.adapters.telegram import telegram_bot
 from calorie_app.api import analytics as analytics_router
 from calorie_app.api import logs, meals, webhook
 from calorie_app.api import recipes as recipes_router
@@ -23,6 +24,11 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Starting calorie-app (model: %s)", settings.openrouter_model)
+    if settings.telegram_bot_token:
+        webhook_url = f"{settings.app_url}/webhook/telegram"
+        ok = await telegram_bot.set_webhook(webhook_url)
+        logger.info("Webhook %s: %s", webhook_url, "registered" if ok else "FAILED")
+        await telegram_bot.set_menu_button(settings.app_url)
     yield
     await engine.dispose()
     logger.info("Shutdown complete")

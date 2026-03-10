@@ -81,6 +81,9 @@ class HistoryDaySchema(BaseModel):
 
 class HistoryResponse(BaseModel):
     days: list[HistoryDaySchema]
+    total: int
+    page: int
+    page_size: int
 
 
 class UserSettingsSchema(BaseModel):

@@ -3,6 +3,7 @@ import { updateMeal, deleteMeal, haptic, fmt } from '../api.js'
 
 export default function MealCard({ meal, onUpdated, onDeleted }) {
   const [editing, setEditing] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [form, setForm] = useState({
     description: meal.description,
     calories: meal.nutrition.calories,
@@ -11,11 +12,13 @@ export default function MealCard({ meal, onUpdated, onDeleted }) {
     carbs_g: meal.nutrition.carbs_g,
   })
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
 
   const confidenceColor = { high: 'var(--green)', medium: 'var(--orange)', low: 'var(--red)' }
 
   const save = async () => {
     setSaving(true)
+    setError(null)
     haptic()
     try {
       const updated = await updateMeal(meal.id, {
@@ -30,20 +33,30 @@ export default function MealCard({ meal, onUpdated, onDeleted }) {
       })
       onUpdated?.(updated)
       setEditing(false)
-    } catch (e) { alert(e.message) }
+    } catch (e) { setError(e.message) }
     finally { setSaving(false) }
   }
 
   const remove = async () => {
-    if (!confirm('Удалить запись?')) return
     haptic('medium')
-    await deleteMeal(meal.id)
-    onDeleted?.(meal.id)
+    try {
+      await deleteMeal(meal.id)
+      onDeleted?.(meal.id)
+    } catch (e) { setError(e.message); setConfirmDelete(false) }
   }
 
   return (
     <div className="card" style={{ marginBottom: 10 }}>
-      {!editing ? (
+      {confirmDelete ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <p style={{ fontWeight: 500 }}>Удалить «{meal.description}»?</p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-sm" style={{ background: 'var(--red)', color: '#fff', border: 'none' }}
+              onClick={remove}>Удалить</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(false)}>Отмена</button>
+          </div>
+        </div>
+      ) : !editing ? (
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -60,7 +73,8 @@ export default function MealCard({ meal, onUpdated, onDeleted }) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <button className="btn btn-ghost btn-sm" onClick={() => setEditing(true)}>✏️</button>
-            <button className="btn btn-ghost btn-sm" onClick={remove} style={{ color: 'var(--red)' }}>🗑</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => { haptic(); setConfirmDelete(true) }}
+              style={{ color: 'var(--red)' }}>🗑</button>
           </div>
         </div>
       ) : (
@@ -76,11 +90,12 @@ export default function MealCard({ meal, onUpdated, onDeleted }) {
               </label>
             ))}
           </div>
+          {error && <p style={{ color: 'var(--red)', fontSize: 13 }}>⚠️ {error}</p>}
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn btn-primary" onClick={save} disabled={saving}>
               {saving ? <span className="spinner" /> : 'Сохранить'}
             </button>
-            <button className="btn btn-secondary" onClick={() => setEditing(false)}>Отмена</button>
+            <button className="btn btn-secondary" onClick={() => { setEditing(false); setError(null) }}>Отмена</button>
           </div>
         </div>
       )}

@@ -47,12 +47,12 @@ def client_with_overrides(mock_db_session: AsyncMock) -> AsyncClient:
 
 class TestGetHistory:
     async def test_returns_history_days(self, client_with_overrides: AsyncClient) -> None:
-        summary = [
+        rows = [
             {"date": "2026-03-04", "meal_count": 4, "calories": 2100},
             {"date": "2026-03-03", "meal_count": 3, "calories": 1750},
         ]
         with patch("calorie_app.api.logs.MealRepo") as MockRepo:
-            MockRepo.return_value.get_history_summary = AsyncMock(return_value=summary)
+            MockRepo.return_value.get_history_summary = AsyncMock(return_value=(rows, 2))
             async with client_with_overrides as client:
                 response = await client.get("/api/history")
 
@@ -62,15 +62,36 @@ class TestGetHistory:
         assert data["days"][0]["date"] == "2026-03-04"
         assert data["days"][0]["meal_count"] == 4
         assert data["days"][1]["calories"] == 1750
+        assert data["total"] == 2
+        assert data["page"] == 1
+        assert data["page_size"] == 30
+
+    async def test_pagination_params(self, client_with_overrides: AsyncClient) -> None:
+        rows = [{"date": "2026-02-01", "meal_count": 2, "calories": 1600}]
+        with patch("calorie_app.api.logs.MealRepo") as MockRepo:
+            MockRepo.return_value.get_history_summary = AsyncMock(return_value=(rows, 45))
+            async with client_with_overrides as client:
+                response = await client.get("/api/history?page=2&page_size=10")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["page"] == 2
+        assert data["page_size"] == 10
+        assert data["total"] == 45
+        mock_call = MockRepo.return_value.get_history_summary.call_args
+        assert mock_call.kwargs["limit"] == 10
+        assert mock_call.kwargs["offset"] == 10
 
     async def test_empty_history(self, client_with_overrides: AsyncClient) -> None:
         with patch("calorie_app.api.logs.MealRepo") as MockRepo:
-            MockRepo.return_value.get_history_summary = AsyncMock(return_value=[])
+            MockRepo.return_value.get_history_summary = AsyncMock(return_value=([], 0))
             async with client_with_overrides as client:
                 response = await client.get("/api/history")
 
         assert response.status_code == 200
-        assert response.json()["days"] == []
+        data = response.json()
+        assert data["days"] == []
+        assert data["total"] == 0
 
 
 class TestGetDailyLog:

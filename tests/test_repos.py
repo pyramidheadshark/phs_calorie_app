@@ -92,18 +92,23 @@ class TestMealRepoGetHistorySummary:
         row2.meal_count = 4
         row2.calories = 2100
 
-        result_mock = MagicMock()
-        result_mock.all.return_value = [row1, row2]
-        mock_session.execute = AsyncMock(return_value=result_mock)
+        count_mock = MagicMock()
+        count_mock.scalar_one.return_value = 2
+
+        rows_mock = MagicMock()
+        rows_mock.all.return_value = [row1, row2]
+
+        mock_session.execute = AsyncMock(side_effect=[count_mock, rows_mock])
 
         repo = MealRepo(mock_session)
-        summary = await repo.get_history_summary(user_id=123)
+        rows, total = await repo.get_history_summary(user_id=123)
 
-        assert len(summary) == 2
-        assert summary[0]["date"] == "2026-03-01"
-        assert summary[0]["meal_count"] == 3
-        assert summary[0]["calories"] == 1800
-        assert summary[1]["calories"] == 2100
+        assert total == 2
+        assert len(rows) == 2
+        assert rows[0]["date"] == "2026-03-01"
+        assert rows[0]["meal_count"] == 3
+        assert rows[0]["calories"] == 1800
+        assert rows[1]["calories"] == 2100
 
     async def test_handles_null_calories(self, mock_session: AsyncMock) -> None:
         row = MagicMock()
@@ -111,11 +116,16 @@ class TestMealRepoGetHistorySummary:
         row.meal_count = 1
         row.calories = None
 
-        result_mock = MagicMock()
-        result_mock.all.return_value = [row]
-        mock_session.execute = AsyncMock(return_value=result_mock)
+        count_mock = MagicMock()
+        count_mock.scalar_one.return_value = 1
+
+        rows_mock = MagicMock()
+        rows_mock.all.return_value = [row]
+
+        mock_session.execute = AsyncMock(side_effect=[count_mock, rows_mock])
 
         repo = MealRepo(mock_session)
-        summary = await repo.get_history_summary(user_id=123)
+        rows, total = await repo.get_history_summary(user_id=123)
 
-        assert summary[0]["calories"] == 0
+        assert total == 1
+        assert rows[0]["calories"] == 0

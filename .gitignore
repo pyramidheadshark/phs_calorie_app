@@ -27,6 +27,9 @@ frontend/coverage/
 MY_DIET_PLAN.md
 dev/
 
+# ── Benchmark data ────────────────────────────────────────────────────────────
+benchmarks/nutrition5k_samples/
+
 # ── Logs ──────────────────────────────────────────────────────────────────────
 *.log
 logs/

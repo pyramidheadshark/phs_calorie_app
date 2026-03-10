@@ -134,11 +134,12 @@ def run_text_benchmark(
     init_data: str,
     limit: int,
     delay: float,
+    offset: int = 0,
 ) -> list[FoodResult]:
-    foods = FOODS[:limit]
+    foods = FOODS[offset:offset + limit]
     results: list[FoodResult] = []
 
-    with httpx.Client(base_url=api_url, timeout=30.0) as client:
+    with httpx.Client(base_url=api_url, timeout=30.0, trust_env=False) as client:
         for i, food in enumerate(foods, 1):
             print(f"  [{i:2d}/{len(foods)}] {food.name_en[:45]:<45}", end=" ", flush=True)
             try:
@@ -251,7 +252,7 @@ def run_photo_benchmark(
     samples = load_photo_dataset(dataset_path, limit)
     results: list[PhotoResult] = []
 
-    with httpx.Client(base_url=api_url, timeout=60.0) as client:
+    with httpx.Client(base_url=api_url, timeout=60.0, trust_env=False) as client:
         for i, sample in enumerate(samples, 1):
             img_path = Path(sample["image_path"])
             label = img_path.parent.name or img_path.name
@@ -429,6 +430,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--user-id", type=int, default=1, help="Telegram user ID for generated init-data"
     )
     common.add_argument("--limit", type=int, default=55, help="Max number of items to test")
+    common.add_argument("--offset", type=int, default=0, help="Skip first N foods")
     common.add_argument("--delay", type=float, default=1.0, help="Seconds between requests")
 
     sub.add_parser("text", parents=[common], help="Run text pipeline benchmark (USDA foods)")
@@ -453,8 +455,9 @@ def main() -> None:
         sys.exit(1)
 
     if args.mode == "text":
-        print(f"\nRunning TEXT benchmark: {min(args.limit, len(FOODS))} foods → {args.api_url}\n")
-        results = run_text_benchmark(args.api_url, init_data, args.limit, args.delay)
+        n = min(args.limit, len(FOODS) - args.offset)
+        print(f"\nRunning TEXT benchmark: {n} foods (offset={args.offset}) -> {args.api_url}\n")
+        results = run_text_benchmark(args.api_url, init_data, args.limit, args.delay, args.offset)
         print_text_report(results)
 
     elif args.mode == "photo":
@@ -462,7 +465,7 @@ def main() -> None:
         if not dataset_path.exists():
             print(f"Dataset path not found: {dataset_path}", file=sys.stderr)
             sys.exit(1)
-        print(f"\nRunning PHOTO benchmark: {args.limit} dishes → {args.api_url}\n")
+        print(f"\nRunning PHOTO benchmark: {args.limit} dishes -> {args.api_url}\n")
         results = run_photo_benchmark(args.api_url, init_data, dataset_path, args.limit, args.delay)
         print_photo_report(results)
 

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { getHistory, getDaily, fmt, haptic } from '../api.js'
 import MealCard from '../components/MealCard.jsx'
 
 export default function History() {
+  const nav = useNavigate()
   const [days, setDays] = useState(null)
   const [selected, setSelected] = useState(null)  // { date, meals, total_nutrition }
   const [loading, setLoading] = useState(true)
@@ -48,7 +50,7 @@ export default function History() {
     <div className="page">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)}>← Назад</button>
-        <div>
+        <div style={{ flex: 1 }}>
           <h2 style={{ fontSize: 18, fontWeight: 700 }}>{fmt.date(selected.date)}</h2>
           <span style={{ fontSize: 13, color: 'var(--muted)' }}>
             🔥 {selected.total_nutrition?.calories} ккал
@@ -56,6 +58,10 @@ export default function History() {
             · 🥑 {Math.round(selected.total_nutrition?.fat_g)}г
           </span>
         </div>
+        <button className="btn btn-primary btn-sm"
+          onClick={() => { haptic(); nav(`/add?date=${selected.date}`) }}>
+          + Добавить
+        </button>
       </div>
       {selected.meals.length === 0
         ? <div className="empty"><div className="empty-icon">📋</div><p>Нет записей</p></div>

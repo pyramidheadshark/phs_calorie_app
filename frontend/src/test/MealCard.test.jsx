@@ -3,13 +3,12 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import MealCard from '../components/MealCard.jsx'
 
-// Mock api module
 vi.mock('../api.js', () => ({
   updateMeal: vi.fn(),
   deleteMeal: vi.fn(),
   haptic: vi.fn(),
   fmt: {
-    time: (s) => '12:30',
+    time: () => '12:30',
     kcal: (n) => `${Math.round(n)} ккал`,
     g: (n) => `${Math.round(n)} г`,
   },
@@ -84,29 +83,39 @@ describe('MealCard — edit mode', () => {
       expect(onUpdated).toHaveBeenCalledWith(updated)
     })
   })
+})
 
-  it('calls deleteMeal and onDeleted after confirmation', async () => {
+describe('MealCard — delete confirm', () => {
+  it('shows inline confirm on trash click', async () => {
+    const user = userEvent.setup()
+    render(<MealCard meal={fakeMeal} />)
+    await user.click(screen.getByText('🗑'))
+    expect(screen.getByText(/Удалить «Овсянка с бананом»/)).toBeInTheDocument()
+    expect(screen.getByText('Удалить')).toBeInTheDocument()
+    expect(screen.getByText('Отмена')).toBeInTheDocument()
+  })
+
+  it('cancelling confirm returns to view mode without deleting', async () => {
+    const user = userEvent.setup()
+    render(<MealCard meal={fakeMeal} />)
+    await user.click(screen.getByText('🗑'))
+    await user.click(screen.getByText('Отмена'))
+    expect(screen.getByText('Овсянка с бананом')).toBeInTheDocument()
+    expect(deleteMeal).not.toHaveBeenCalled()
+  })
+
+  it('confirming delete calls deleteMeal and onDeleted', async () => {
     const user = userEvent.setup()
     deleteMeal.mockResolvedValueOnce(null)
     const onDeleted = vi.fn()
-    vi.spyOn(window, 'confirm').mockReturnValueOnce(true)
 
     render(<MealCard meal={fakeMeal} onDeleted={onDeleted} />)
     await user.click(screen.getByText('🗑'))
+    await user.click(screen.getByText('Удалить'))
 
     await waitFor(() => {
       expect(deleteMeal).toHaveBeenCalledWith('meal-123')
       expect(onDeleted).toHaveBeenCalledWith('meal-123')
     })
-  })
-
-  it('does not delete if confirm returns false', async () => {
-    const user = userEvent.setup()
-    vi.spyOn(window, 'confirm').mockReturnValueOnce(false)
-
-    render(<MealCard meal={fakeMeal} />)
-    await user.click(screen.getByText('🗑'))
-
-    expect(deleteMeal).not.toHaveBeenCalled()
   })
 })

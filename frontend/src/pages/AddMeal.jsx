@@ -1,14 +1,18 @@
 import { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { analyzeText, analyzePhoto, analyzeVoice, analyzeCombo, confirmMeal, haptic, fmt } from '../api.js'
 
 const TABS = ['📷 Фото', '✏️ Текст', '🎤 Голос', '🔀 Комбо']
 
 export default function AddMeal() {
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
+  const targetDate = searchParams.get('date') // e.g. "2026-03-04" for past-day entry
   const [tab, setTab] = useState(0)
   const [pending, setPending] = useState([])   // confirmed items waiting to be saved
   const [result, setResult] = useState(null)   // current analysis result
+  const [editingResult, setEditingResult] = useState(false)
+  const [resultForm, setResultForm] = useState(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -52,15 +56,39 @@ export default function AddMeal() {
         if (!comboPhoto || !comboAudio) throw new Error('Нужно фото и голосовое')
         r = await analyzeCombo(comboPhoto, comboAudio)
       }
-      setResult({ ...r, photo_path: r.photo_path ?? null, gemini_raw: r.gemini_raw ?? {} })
+      const parsed = { ...r, photo_path: r.photo_path ?? null, gemini_raw: r.gemini_raw ?? {} }
+      setResult(parsed)
+      setResultForm({
+        description: parsed.description,
+        calories: parsed.nutrition?.calories ?? 0,
+        protein_g: parsed.nutrition?.protein_g ?? 0,
+        fat_g: parsed.nutrition?.fat_g ?? 0,
+        carbs_g: parsed.nutrition?.carbs_g ?? 0,
+      })
+      setEditingResult(false)
     } catch (e) { setError(e.message); haptic('medium') }
     finally { setLoading(false) }
+  }
+
+  const applyResultEdit = () => {
+    setResult(prev => ({
+      ...prev,
+      description: resultForm.description,
+      nutrition: {
+        ...prev.nutrition,
+        calories: +resultForm.calories,
+        protein_g: +resultForm.protein_g,
+        fat_g: +resultForm.fat_g,
+        carbs_g: +resultForm.carbs_g,
+      },
+    }))
+    setEditingResult(false)
   }
 
   const addToPending = () => {
     haptic()
     setPending(p => [...p, result])
-    setResult(null)
+    setResult(null); setResultForm(null); setEditingResult(false)
     setPhotoFile(null); setPhotoContext(''); setTextDesc(''); setAudioBlob(null)
     setComboPhoto(null); setComboAudio(null)
   }
@@ -77,6 +105,7 @@ export default function AddMeal() {
           confidence: item.confidence,
           photo_path: item.photo_path,
           gemini_raw: item.gemini_raw,
+          logged_at: targetDate ? `${targetDate}T12:00:00Z` : undefined,
         })
       }
       haptic('light')
@@ -110,7 +139,9 @@ export default function AddMeal() {
 
   return (
     <div className="page">
-      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16 }}>Добавить блюдо</h2>
+      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16 }}>
+        {targetDate ? `Добавить в ${targetDate}` : 'Добавить блюдо'}
+      </h2>
 
       {/* Pending items */}
       {pending.length > 0 && (
@@ -221,21 +252,48 @@ export default function AddMeal() {
       {/* Analysis result */}
       {result && (
         <div className="card" style={{ marginBottom: 16, borderTop: '3px solid var(--accent)' }}>
-          <p style={{ fontWeight: 600, marginBottom: 8 }}>{result.description}</p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-            <span className="chip chip-blue">🔥 {result.nutrition?.calories} ккал</span>
-            <span className="chip chip-green">💪 {Math.round(result.nutrition?.protein_g)}г</span>
-            <span className="chip chip-orange">🥑 {Math.round(result.nutrition?.fat_g)}г</span>
-            <span className="chip chip-muted">🌾 {Math.round(result.nutrition?.carbs_g)}г</span>
-            <span className={`chip chip-${result.confidence === 'high' ? 'green' : result.confidence === 'medium' ? 'orange' : 'red'}`}>
-              {result.confidence === 'high' ? '✓ Уверен' : result.confidence === 'medium' ? '~ Примерно' : '? Не уверен'}
-            </span>
-          </div>
-          {result.notes && <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>{result.notes}</p>}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-secondary btn-sm" onClick={addToPending}>+ Добавить ещё</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setResult(null)}>Переанализировать</button>
-          </div>
+          {editingResult ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <textarea className="input" rows={2}
+                value={resultForm.description}
+                onChange={e => setResultForm(f => ({ ...f, description: e.target.value }))} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {[['calories','🔥 Ккал'],['protein_g','💪 Белки'],['fat_g','🥑 Жиры'],['carbs_g','🌾 Углеводы']].map(([k, label]) => (
+                  <label key={k} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>{label}</span>
+                    <input className="input" type="number" value={resultForm[k]}
+                      onChange={e => setResultForm(f => ({ ...f, [k]: e.target.value }))} />
+                  </label>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-primary btn-sm" onClick={applyResultEdit}>Применить</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setEditingResult(false)}>Отмена</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                <p style={{ fontWeight: 600, flex: 1 }}>{result.description}</p>
+                <button className="btn btn-ghost btn-sm" style={{ marginLeft: 8 }}
+                  onClick={() => setEditingResult(true)}>✏️</button>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                <span className="chip chip-blue">🔥 {result.nutrition?.calories} ккал</span>
+                <span className="chip chip-green">💪 {Math.round(result.nutrition?.protein_g)}г</span>
+                <span className="chip chip-orange">🥑 {Math.round(result.nutrition?.fat_g)}г</span>
+                <span className="chip chip-muted">🌾 {Math.round(result.nutrition?.carbs_g)}г</span>
+                <span className={`chip chip-${result.confidence === 'high' ? 'green' : result.confidence === 'medium' ? 'orange' : 'red'}`}>
+                  {result.confidence === 'high' ? '✓ Уверен' : result.confidence === 'medium' ? '~ Примерно' : '? Не уверен'}
+                </span>
+              </div>
+              {result.notes && <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>{result.notes}</p>}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-secondary btn-sm" onClick={addToPending}>+ Добавить ещё</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => { setResult(null); setResultForm(null) }}>Переанализировать</button>
+              </div>
+            </>
+          )}
         </div>
       )}
 

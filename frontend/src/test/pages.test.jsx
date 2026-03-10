@@ -1,8 +1,8 @@
 /**
- * Smoke tests for page components.
- * Verifies each page renders without crashing under common data states.
+ * Page component tests: smoke + key interactions.
  */
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import { createContext, useContext } from 'react'
@@ -33,9 +33,10 @@ vi.mock('../api.js', () => ({
     total_nutrition: { calories: 0, protein_g: 0, fat_g: 0, carbs_g: 0 },
   }),
   getStreak: vi.fn().mockResolvedValue({ streak_days: 3 }),
-  getHistory: vi.fn().mockResolvedValue([
-    { date: '2026-03-05', meal_count: 3, calories: 1800 },
-  ]),
+  getHistory: vi.fn().mockResolvedValue({
+    days: [{ date: '2026-03-05', meal_count: 3, calories: 1800 }],
+    total: 1, page: 1, page_size: 30,
+  }),
   getAnalytics: vi.fn().mockResolvedValue({
     calorie_trend: [],
     macro_split: { protein_pct: 30, fat_pct: 30, carbs_pct: 40 },
@@ -47,9 +48,20 @@ vi.mock('../api.js', () => ({
   }),
   getSettings: vi.fn().mockResolvedValue(defaultSettings),
   getRecipes: vi.fn().mockResolvedValue([]),
+  analyzeText: vi.fn().mockResolvedValue({
+    description: 'Гречка с курицей',
+    nutrition: { calories: 400, protein_g: 30, fat_g: 10, carbs_g: 45, portion_g: 350 },
+    confidence: 'medium', notes: '', photo_path: null, gemini_raw: {},
+  }),
+  analyzePhoto: vi.fn(),
+  analyzeVoice: vi.fn(),
+  analyzeCombo: vi.fn(),
+  confirmMeal: vi.fn().mockResolvedValue({}),
+  updateMeal: vi.fn(),
+  deleteMeal: vi.fn(),
   generateRecipe: vi.fn(),
   recipeFeedback: vi.fn(),
-  updateSettings: vi.fn(),
+  updateSettings: vi.fn().mockResolvedValue({}),
   parseProfile: vi.fn(),
   today: () => '2026-03-05',
   fmt: {
@@ -161,6 +173,118 @@ describe('AddMeal page', () => {
     await waitFor(() => {
       const buttons = document.querySelectorAll('button')
       expect(buttons.length).toBeGreaterThan(0)
+    })
+  })
+
+  it('text tab: analyze → shows result with edit button', async () => {
+    const { analyzeText } = await import('../api.js')
+    const user = userEvent.setup()
+    render(<Wrap><AddMeal /></Wrap>)
+
+    // Switch to text tab
+    await user.click(screen.getByText(/Текст/))
+    const textarea = screen.getByPlaceholderText(/200г/)
+    await user.type(textarea, 'гречка 200г')
+
+    await user.click(screen.getByText(/Анализировать/))
+
+    await waitFor(() => {
+      expect(analyzeText).toHaveBeenCalledWith('гречка 200г')
+      expect(screen.getByText('Гречка с курицей')).toBeInTheDocument()
+      expect(screen.getByText('✏️')).toBeInTheDocument()
+    })
+  })
+
+  it('text tab: analyze → edit result → values updated', async () => {
+    const user = userEvent.setup()
+    render(<Wrap><AddMeal /></Wrap>)
+
+    await user.click(screen.getByText(/Текст/))
+    await user.type(screen.getByPlaceholderText(/200г/), 'борщ')
+    await user.click(screen.getByText(/Анализировать/))
+
+    await waitFor(() => screen.getByText('Гречка с курицей'))
+
+    // Open inline edit
+    await user.click(screen.getByText('✏️'))
+    expect(screen.getByText('Применить')).toBeInTheDocument()
+
+    // Change calories field
+    const calInput = screen.getAllByRole('spinbutton')[0]
+    await user.clear(calInput)
+    await user.type(calInput, '500')
+    await user.click(screen.getByText('Применить'))
+
+    // Should show updated value
+    await waitFor(() => expect(screen.getByText(/500/)).toBeInTheDocument())
+  })
+
+  it('text tab: analyze → confirm → confirmMeal called', async () => {
+    const { confirmMeal } = await import('../api.js')
+    const user = userEvent.setup()
+    render(<Wrap><AddMeal /></Wrap>)
+
+    await user.click(screen.getByText(/Текст/))
+    await user.type(screen.getByPlaceholderText(/200г/), 'яблоко')
+    await user.click(screen.getByText(/Анализировать/))
+
+    await waitFor(() => screen.getByText(/Сохранить/))
+    await user.click(screen.getByText(/Сохранить/))
+
+    await waitFor(() => {
+      expect(confirmMeal).toHaveBeenCalledWith(expect.objectContaining({
+        description: 'Гречка с курицей',
+        nutrition: expect.objectContaining({ calories: 400 }),
+      }))
+    })
+  })
+})
+
+// ── AddMeal — past date ───────────────────────────────────────────────────────
+
+describe('AddMeal page — past date mode', () => {
+  it('shows target date in heading', async () => {
+    render(
+      <MemoryRouter initialEntries={['/add?date=2026-03-01']}>
+        <AddMeal />
+      </MemoryRouter>
+    )
+    await waitFor(() => {
+      expect(screen.getByText(/2026-03-01/)).toBeInTheDocument()
+    })
+  })
+
+  it('passes logged_at to confirmMeal when date param present', async () => {
+    const { analyzeText, confirmMeal } = await import('../api.js')
+    const user = userEvent.setup()
+
+    render(
+      <MemoryRouter initialEntries={['/add?date=2026-03-01']}>
+        <AddMeal />
+      </MemoryRouter>
+    )
+
+    await user.click(screen.getByText(/Текст/))
+    await user.type(screen.getByPlaceholderText(/200г/), 'суп')
+    await user.click(screen.getByText(/Анализировать/))
+    await waitFor(() => screen.getByText(/Сохранить/))
+    await user.click(screen.getByText(/Сохранить/))
+
+    await waitFor(() => {
+      expect(confirmMeal).toHaveBeenCalledWith(expect.objectContaining({
+        logged_at: '2026-03-01T12:00:00Z',
+      }))
+    })
+  })
+})
+
+// ── History — add to past day ─────────────────────────────────────────────────
+
+describe('History page — day detail', () => {
+  it('shows date row in list after load', async () => {
+    render(<Wrap><History /></Wrap>)
+    await waitFor(() => {
+      expect(screen.getByText('2026-03-05')).toBeInTheDocument()
     })
   })
 })

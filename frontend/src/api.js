@@ -6,14 +6,41 @@ function headers(isJson = true) {
   return h
 }
 
+function humanError(status, body) {
+  if (status === 429) return 'Превышен лимит запросов. Подождите минуту и попробуйте снова'
+  if (status === 413) return 'Файл слишком большой. Максимум 10 МБ'
+  if (status === 415) return 'Неподдерживаемый формат файла'
+  if (status === 401) return 'Ошибка авторизации. Перезапустите приложение'
+  if (status >= 500) return 'Сервер временно недоступен. Попробуйте снова'
+  try {
+    const parsed = JSON.parse(body)
+    return parsed.detail || body || `Ошибка ${status}`
+  } catch {
+    return body || `Ошибка ${status}`
+  }
+}
+
 async function req(path, opts = {}) {
-  const r = await fetch(path, opts)
+  let r
+  try {
+    r = await fetch(path, opts)
+  } catch {
+    throw new Error('Нет соединения. Проверьте интернет')
+  }
   if (!r.ok) {
-    const text = await r.text().catch(() => r.statusText)
-    throw new Error(text || `HTTP ${r.status}`)
+    const text = await r.text().catch(() => '')
+    throw new Error(humanError(r.status, text))
   }
   if (r.status === 204) return null
   return r.json()
+}
+
+const MAX_FILE_MB = 10
+const MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024
+
+function checkFileSize(file) {
+  if (file && file.size > MAX_FILE_BYTES)
+    throw new Error(`Файл слишком большой. Максимум ${MAX_FILE_MB} МБ`)
 }
 
 export const haptic = (type = 'light') => tg()?.HapticFeedback?.impactOccurred(type)
@@ -23,6 +50,7 @@ export const analyzeText = (description) =>
   req('/api/meal/text', { method: 'POST', headers: headers(), body: JSON.stringify({ description }) })
 
 export const analyzePhoto = (file, context = '') => {
+  checkFileSize(file)
   const fd = new FormData()
   fd.append('file', file)
   fd.append('context', context)
@@ -30,12 +58,15 @@ export const analyzePhoto = (file, context = '') => {
 }
 
 export const analyzeVoice = (blob) => {
+  checkFileSize(blob)
   const fd = new FormData()
   fd.append('file', blob, 'voice.webm')
   return req('/api/meal/voice', { method: 'POST', headers: headers(false), body: fd })
 }
 
 export const analyzeCombo = (imageFile, audioBlob) => {
+  checkFileSize(imageFile)
+  checkFileSize(audioBlob)
   const fd = new FormData()
   fd.append('image', imageFile)
   fd.append('audio', audioBlob, 'voice.webm')

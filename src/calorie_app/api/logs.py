@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from calorie_app.adapters.db.repos import MealRepo
@@ -93,11 +93,16 @@ async def get_weekly_stats(
 
 @router.get("/history", response_model=HistoryResponse)
 async def get_history(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=30, ge=1, le=90),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> HistoryResponse:
     repo = MealRepo(session)
-    summary = await repo.get_history_summary(current_user.telegram_id)
+    offset = (page - 1) * page_size
+    rows, total = await repo.get_history_summary(
+        current_user.telegram_id, limit=page_size, offset=offset
+    )
     return HistoryResponse(
         days=[
             HistoryDaySchema(
@@ -105,8 +110,11 @@ async def get_history(
                 meal_count=row["meal_count"],
                 calories=row["calories"],
             )
-            for row in summary
-        ]
+            for row in rows
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
     )
 
 

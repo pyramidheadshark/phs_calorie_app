@@ -4,6 +4,8 @@ Telegram Mini App для персонального учёта КБЖУ с AI-р
 
 Пользователь фотографирует блюдо, описывает его текстом или голосом — приложение возвращает калории, белки, жиры и углеводы. Все данные сохраняются в дневник с историей и статистикой.
 
+> **Этот проект целиком написан AI-агентом** (Claude) по пресетам и инфраструктуре из репозитория [pyramidheadshark/ml-claude-infra](https://github.com/pyramidheadshark/ml-claude-infra). Код, тесты, миграции, Docker-конфиг — всё сгенерировано в рамках агентных сессий без ручного написания кода.
+
 ---
 
 ## Стек
@@ -11,7 +13,7 @@ Telegram Mini App для персонального учёта КБЖУ с AI-р
 | Слой | Технология |
 |---|---|
 | API | FastAPI + uvicorn |
-| AI | OpenRouter → `google/gemini-3-flash-preview` |
+| AI | OpenRouter → `google/gemini-2.5-flash` |
 | База данных | PostgreSQL + SQLAlchemy (asyncpg) |
 | Миграции | Alembic |
 | Фоновые задачи | Celery + Redis |
@@ -71,9 +73,10 @@ src/calorie_app/
 | Метод | Путь | Описание |
 |---|---|---|
 | `GET` | `/api/daily/{YYYY-MM-DD}` | Приёмы пищи за день + суммарные КБЖУ |
-| `GET` | `/api/history` | Список дней с количеством записей и калориями |
+| `GET` | `/api/history?page=1&page_size=30` | Список дней с количеством записей и калориями (пагинация) |
 | `GET` | `/api/stats/weekly` | Сводка по макронутриентам за 7 дней |
 | `GET` | `/api/stats/streak` | Текущий streak (дней подряд с записями) |
+| `GET` | `/api/stats/analytics` | Аналитика за 30 дней: тренд калорий, макро-сплит, топ блюд |
 
 ### Профиль и рецепты
 
@@ -139,7 +142,7 @@ REDIS_URL=redis://redis:6379/0
 ### 2. Docker Compose
 
 ```bash
-# Поднять все сервисы (api, postgres, redis, worker, beat)
+# Поднять все сервисы (api, postgres, redis, worker, beat, tunnel)
 docker compose up -d --build
 
 # Применить миграции БД
@@ -149,13 +152,7 @@ docker compose exec api uv run alembic upgrade head
 curl http://localhost:8001/health
 ```
 
-### 3. Зарегистрировать webhook
-
-```bash
-curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
-     -d "url=https://your-domain.com/webhook/telegram" \
-     -d "secret_token=your-secret"
-```
+Webhook у Telegram и кнопка Mini App в меню бота **регистрируются автоматически** при старте `api`-контейнера.
 
 ### 4. Локальный запуск (без Docker)
 
@@ -175,16 +172,23 @@ uv sync --dev
 uv run python -m pytest -x -v
 ```
 
-35 тестов, не требуют запущенного PostgreSQL/Redis — всё замокировано.
+92 теста, не требуют запущенного PostgreSQL/Redis — всё замокировано. Coverage 77%.
 
 ```
 tests/
-├── conftest.py           — фикстуры: fake_user, fake_analysis, mock_session
-├── test_gemini.py        — unit: _strip_fences, _parse_response, analyze_text, промпты
-├── test_repos.py         — unit: MealRepo.update, get_history_summary
-├── test_api_meals.py     — интеграция: /photo-path, /text, PATCH, confirm, auth
-├── test_api_logs.py      — интеграция: /daily, /history, auth
-└── test_ratelimit.py     — unit: rate limit под лимитом, выше, Redis down, per-user ключи
+├── conftest.py                — фикстуры: fake_user, fake_analysis, mock_session
+├── test_gemini.py             — GeminiAdapter: все методы + парсинг ответов
+├── test_repos.py              — unit: MealRepo, UserRepo, RecipeRepo
+├── test_api_meals.py          — /photo-path, /text, /voice, confirm, PATCH, DELETE
+├── test_api_logs.py           — /daily, /history (с пагинацией), /stats/*
+├── test_api_analytics.py      — /stats/analytics
+├── test_api_recipes.py        — /recipes generate, history, feedback
+├── test_api_settings.py       — /user/settings, /user/profile/parse
+├── test_ratelimit.py          — rate limit: лимит, превышение, Redis down
+├── test_webhook.py            — /webhook/telegram: /start, /help
+├── test_calculator.py         — compute_streak, macro_percentages
+├── test_telegram.py           — validate_init_data HMAC
+└── test_repos_integration.py  — интеграционные (требуют Postgres, ENVIRONMENT=test)
 ```
 
 ---
