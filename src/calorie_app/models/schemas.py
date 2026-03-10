@@ -45,6 +45,15 @@ class MealUpdateRequest(BaseModel):
     description: str | None = None
     nutrition: NutritionFactsSchema | None = None
     confidence: Literal["high", "medium", "low"] | None = None
+    logged_at: datetime | None = None
+
+
+class ChatRequest(BaseModel):
+    message: str
+
+
+class ChatResponse(BaseModel):
+    reply: str
 
 
 class MealTextRequest(BaseModel):

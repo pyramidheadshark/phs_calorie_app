@@ -17,6 +17,24 @@
   --nav-h:  64px;
 }
 
+/* Dark theme — explicit via data-theme (set from Telegram.WebApp.colorScheme) or OS preference */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:     var(--tg-theme-bg-color,           #1C1C1E);
+    --bg2:    var(--tg-theme-secondary-bg-color,  #2C2C2E);
+    --text:   var(--tg-theme-text-color,          #FFFFFF);
+    --muted:  var(--tg-theme-hint-color,          #8E8E93);
+    --border: rgba(255,255,255,.10);
+  }
+}
+:root[data-theme="dark"] {
+  --bg:     var(--tg-theme-bg-color,           #1C1C1E);
+  --bg2:    var(--tg-theme-secondary-bg-color,  #2C2C2E);
+  --text:   var(--tg-theme-text-color,          #FFFFFF);
+  --muted:  var(--tg-theme-hint-color,          #8E8E93);
+  --border: rgba(255,255,255,.10);
+}
+
 html, body, #root {
   height: 100%;
   background: var(--bg);
@@ -29,7 +47,7 @@ html, body, #root {
 /* Scrollable page area above nav */
 .page {
   min-height: calc(100dvh - var(--nav-h));
-  padding: 16px 16px calc(var(--nav-h) + 16px);
+  padding: calc(16px + var(--tg-content-safe-area-inset-top, 0px)) 16px calc(var(--nav-h) + 16px);
   overflow-y: auto;
 }
 

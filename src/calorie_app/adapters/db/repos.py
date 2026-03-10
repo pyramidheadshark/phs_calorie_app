@@ -214,6 +214,7 @@ class MealRepo:
         description: str | None = None,
         nutrition: NutritionFacts | None = None,
         confidence: str | None = None,
+        logged_at: datetime | None = None,
     ) -> MealEntry | None:
         result = await self._session.execute(
             select(MealEntryModel).where(
@@ -234,6 +235,8 @@ class MealRepo:
             model.portion_g = nutrition.portion_g
         if confidence is not None:
             model.confidence = confidence
+        if logged_at is not None:
+            model.logged_at = logged_at
         await self._session.commit()
         await self._session.refresh(model)
         return _meal_from_model(model)

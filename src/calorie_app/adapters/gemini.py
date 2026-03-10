@@ -8,6 +8,7 @@ import httpx
 
 from calorie_app.adapters.prompts import (
     ANALYSIS_PROMPT,
+    CHAT_PROMPT,
     PROFILE_PARSE_PROMPT,
     RECIPE_PROMPT,
     TEXT_ANALYSIS_PROMPT,
@@ -244,6 +245,48 @@ class GeminiAdapter:
             cooking_time_min=int(data.get("cooking_time_min", 30)),
             equipment_used=data.get("equipment_used", []),
         )
+
+    async def chat(
+        self,
+        message: str,
+        goal: str,
+        calorie_target: int,
+        protein_target: int,
+        fat_target: int,
+        carbs_target: int,
+        date: str,
+        today_calories: int,
+        today_protein: float,
+        today_fat: float,
+        today_carbs: float,
+        remaining_calories: int,
+        meals_list: str,
+        avg_calories: str,
+    ) -> str:
+        context = CHAT_PROMPT.format(
+            goal=goal,
+            calorie_target=calorie_target,
+            protein_target=protein_target,
+            fat_target=fat_target,
+            carbs_target=carbs_target,
+            date=date,
+            today_calories=today_calories,
+            today_protein=today_protein,
+            today_fat=today_fat,
+            today_carbs=today_carbs,
+            remaining_calories=remaining_calories,
+            meals_list=meals_list,
+            avg_calories=avg_calories,
+            message=message,
+        )
+        payload = {
+            "model": self._model,
+            "messages": [{"role": "user", "content": context}],
+            "max_tokens": 400,
+        }
+        body = await self._post(payload, timeout=20.0)
+        content = body["choices"][0]["message"]["content"]
+        return content if content else "Не удалось получить ответ. Попробуйте ещё раз."
 
 
 gemini_adapter = GeminiAdapter()

@@ -216,6 +216,7 @@ async def update_meal(
         description=body.description,
         nutrition=nutrition,
         confidence=body.confidence,
+        logged_at=body.logged_at,
     )
     if updated is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meal not found")

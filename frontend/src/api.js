@@ -82,6 +82,10 @@ export const updateMeal = (id, data) =>
 export const deleteMeal = (id) =>
   req(`/api/meal/${id}`, { method: 'DELETE', headers: headers() })
 
+// ── Chat ──────────────────────────────────────────────────────────────────
+export const sendChat = (message) =>
+  req('/api/chat', { method: 'POST', headers: headers(), body: JSON.stringify({ message }) })
+
 // ── Logs ──────────────────────────────────────────────────────────────────
 export const getDaily = (date) =>
   req(`/api/daily/${date}`, { headers: headers() })

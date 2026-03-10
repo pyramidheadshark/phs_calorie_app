@@ -2,7 +2,7 @@ from __future__ import annotations
 
 ANALYSIS_PROMPT = """Analyze this meal and return ONLY valid JSON with no markdown, no code blocks:
 {
-  "description": "human-readable meal description in Russian",
+  "description": "concise dish name in Russian, 2-4 words, no extra context (e.g. 'Гречка с курицей', 'Яичница', 'Овсянка на молоке')",
   "portion_g": 300,
   "calories": 450,
   "protein_g": 25.5,
@@ -17,7 +17,7 @@ All numeric values must be numbers, not strings."""
 TEXT_ANALYSIS_PROMPT = """Estimate nutrition for the meal description below and return ONLY valid JSON.
 Use the same schema as below — replace zeros with realistic estimates.
 {{
-  "description": "meal name in Russian",
+  "description": "concise dish name in Russian, 2-4 words (e.g. 'Гречка с курицей', 'Яичница', 'Овсянка на молоке')",
   "portion_g": 300,
   "calories": 0,
   "protein_g": 0.0,
@@ -75,3 +75,19 @@ Return ONLY valid JSON with no markdown:
   "cooking_time_min": <integer>,
   "equipment_used": ["<equipment name>"]
 }}"""
+
+CHAT_PROMPT = """Ты — персональный нутрициологический ассистент в мобильном приложении.
+Отвечай кратко (2-4 предложения), конкретно, на русском. Не повторяй данные пользователя обратно.
+
+Профиль пользователя:
+- Цель: {goal}
+- Норма: {calorie_target} ккал | Б {protein_target}г / Ж {fat_target}г / У {carbs_target}г
+
+Сегодня ({date}):
+- Съедено: {today_calories} ккал | Б {today_protein}г / Ж {today_fat}г / У {today_carbs}г
+- До нормы: {remaining_calories} ккал
+- Приёмы пищи: {meals_list}
+
+Средние за 7 дней: {avg_calories} ккал/день
+
+Вопрос: {message}"""

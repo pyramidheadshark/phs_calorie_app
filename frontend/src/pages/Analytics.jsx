@@ -92,7 +92,7 @@ export default function Analytics() {
                 <p style={{ fontWeight: 500, fontSize: 14 }}>{m.description}</p>
                 <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>~{m.avg_calories} ккал · {m.count}×</p>
               </div>
-              <span style={{ fontSize: 20 }}>{'🥇🥈🥉🏅🏅'[i]}</span>
+              <span style={{ fontSize: 20 }}>{Array.from('🥇🥈🥉🏅🏅')[i]}</span>
             </div>
           ))}
         </>

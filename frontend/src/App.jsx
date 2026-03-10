@@ -5,6 +5,7 @@ import Home from './pages/Home.jsx'
 import AddMeal from './pages/AddMeal.jsx'
 import History from './pages/History.jsx'
 import Analytics from './pages/Analytics.jsx'
+import Chat from './pages/Chat.jsx'
 import Profile from './pages/Profile.jsx'
 import { getSettings } from './api.js'
 
@@ -19,8 +20,11 @@ export default function App() {
   }
 
   useEffect(() => {
-    window.Telegram?.WebApp?.ready()
-    window.Telegram?.WebApp?.expand()
+    const tg = window.Telegram?.WebApp
+    tg?.ready()
+    tg?.expand()
+    // Apply dark/light class so CSS vars work correctly outside Telegram
+    document.documentElement.dataset.theme = tg?.colorScheme ?? 'light'
     load()
   }, [])
 
@@ -32,6 +36,7 @@ export default function App() {
           <Route path="/add"       element={<AddMeal />} />
           <Route path="/history"   element={<History />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/chat"      element={<Chat />} />
           <Route path="/profile"   element={<Profile />} />
           <Route path="*"          element={<Navigate to="/" replace />} />
         </Routes>

@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from calorie_app.adapters.db.session import engine
 from calorie_app.adapters.telegram import telegram_bot
 from calorie_app.api import analytics as analytics_router
+from calorie_app.api import chat as chat_router
 from calorie_app.api import logs, meals, webhook
 from calorie_app.api import recipes as recipes_router
 from calorie_app.api import settings as settings_router
@@ -51,6 +52,7 @@ app.add_middleware(
 
 app.include_router(meals.router)
 app.include_router(logs.router)
+app.include_router(chat_router.router)
 app.include_router(settings_router.router)
 app.include_router(recipes_router.router)
 app.include_router(analytics_router.router)

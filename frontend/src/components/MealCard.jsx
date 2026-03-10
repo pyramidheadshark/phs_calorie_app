@@ -10,6 +10,7 @@ export default function MealCard({ meal, onUpdated, onDeleted }) {
     protein_g: meal.nutrition.protein_g,
     fat_g: meal.nutrition.fat_g,
     carbs_g: meal.nutrition.carbs_g,
+    logged_date: meal.logged_at ? meal.logged_at.slice(0, 10) : '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -30,6 +31,7 @@ export default function MealCard({ meal, onUpdated, onDeleted }) {
           carbs_g: +form.carbs_g,
           portion_g: meal.nutrition.portion_g,
         },
+        logged_at: form.logged_date ? `${form.logged_date}T12:00:00Z` : undefined,
       })
       onUpdated?.(updated)
       setEditing(false)
@@ -90,6 +92,11 @@ export default function MealCard({ meal, onUpdated, onDeleted }) {
               </label>
             ))}
           </div>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 11, color: 'var(--muted)' }}>📅 Дата</span>
+            <input className="input" type="date" value={form.logged_date}
+              onChange={e => setForm(f => ({ ...f, logged_date: e.target.value }))} />
+          </label>
           {error && <p style={{ color: 'var(--red)', fontSize: 13 }}>⚠️ {error}</p>}
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn btn-primary" onClick={save} disabled={saving}>

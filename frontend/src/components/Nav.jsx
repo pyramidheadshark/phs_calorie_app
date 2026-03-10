@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom'
 
 const items = [
-  { to: '/',          emoji: '🏠', label: 'Сегодня'   },
-  { to: '/history',   emoji: '📋', label: 'История'   },
+  { to: '/',          emoji: '🏠', label: 'Сегодня'  },
+  { to: '/history',   emoji: '📋', label: 'История'  },
   { to: '/add',       emoji: '➕', label: 'Добавить', fab: true },
+  { to: '/chat',      emoji: '💬', label: 'Ассистент' },
   { to: '/analytics', emoji: '📊', label: 'Аналитика' },
-  { to: '/profile',   emoji: '👤', label: 'Профиль'   },
+  { to: '/profile',   emoji: '👤', label: 'Профиль'  },
 ]
 
 export default function Nav() {
@@ -31,20 +32,20 @@ export default function Nav() {
             }}>
               {fab ? (
                 <div style={{
-                  width: 44, height: 44,
+                  width: 40, height: 40,
                   borderRadius: '50%',
                   background: 'var(--accent)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 20, marginTop: -8,
+                  fontSize: 18, marginTop: -8,
                   boxShadow: '0 4px 12px rgba(0,122,255,.35)',
                 }}>
                   {emoji}
                 </div>
               ) : (
-                <span style={{ fontSize: 22 }}>{emoji}</span>
+                <span style={{ fontSize: 20 }}>{emoji}</span>
               )}
               <span style={{
-                fontSize: 10, fontWeight: 600,
+                fontSize: 9, fontWeight: 600,
                 color: isActive ? 'var(--accent)' : 'var(--muted)',
               }}>
                 {label}
