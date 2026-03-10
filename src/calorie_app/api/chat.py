@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from calorie_app.adapters.db.repos import MealRepo
@@ -43,20 +43,23 @@ async def chat(
     else:
         avg_calories = "нет данных"
 
-    reply = await gemini_adapter.chat(
-        message=body.message,
-        goal=s.goal_description or "поддержание формы",
-        calorie_target=target,
-        protein_target=s.protein_target_g or 120,
-        fat_target=s.fat_target_g or 70,
-        carbs_target=s.carbs_target_g or 250,
-        date=today,
-        today_calories=today_cal,
-        today_protein=today_protein,
-        today_fat=today_fat,
-        today_carbs=today_carbs,
-        remaining_calories=remaining,
-        meals_list=meals_str,
-        avg_calories=avg_calories,
-    )
+    try:
+        reply = await gemini_adapter.chat(
+            message=body.message,
+            goal=s.goal_description or "поддержание формы",
+            calorie_target=target,
+            protein_target=s.macro_targets.protein_g,
+            fat_target=s.macro_targets.fat_g,
+            carbs_target=s.macro_targets.carbs_g,
+            date=today,
+            today_calories=today_cal,
+            today_protein=today_protein,
+            today_fat=today_fat,
+            today_carbs=today_carbs,
+            remaining_calories=remaining,
+            meals_list=meals_str,
+            avg_calories=avg_calories,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI unavailable: {e}") from e
     return ChatResponse(reply=reply)

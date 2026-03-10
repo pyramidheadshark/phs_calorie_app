@@ -92,4 +92,122 @@ describe('req error handling', () => {
     const result = await deleteMeal('some-id')
     expect(result).toBeNull()
   })
+
+  it('throws Russian message on network failure', async () => {
+    fetch.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+
+    const { analyzeText } = await import('../api.js')
+    await expect(analyzeText('test')).rejects.toThrow('Нет соединения')
+  })
+
+  it('throws rate limit message on 429', async () => {
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 429,
+      text: async () => 'Too Many Requests',
+    })
+
+    const { analyzeText } = await import('../api.js')
+    await expect(analyzeText('test')).rejects.toThrow('Превышен лимит')
+  })
+
+  it('throws auth message on 401', async () => {
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      text: async () => 'Unauthorized',
+    })
+
+    const { analyzeText } = await import('../api.js')
+    await expect(analyzeText('test')).rejects.toThrow('авторизации')
+  })
+
+  it('throws server error message on 500', async () => {
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      text: async () => 'Internal Server Error',
+    })
+
+    const { analyzeText } = await import('../api.js')
+    await expect(analyzeText('test')).rejects.toThrow('временно недоступен')
+  })
+})
+
+describe('sendChat', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn())
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('POSTs to /api/chat with message and returns reply', async () => {
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ reply: 'Отличный вопрос!' }),
+    })
+
+    const { sendChat } = await import('../api.js')
+    const result = await sendChat('Что поесть?')
+
+    expect(result.reply).toBe('Отличный вопрос!')
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/chat',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ message: 'Что поесть?' }),
+      })
+    )
+  })
+
+  it('throws on non-ok response', async () => {
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      text: async () => 'Server error',
+    })
+
+    const { sendChat } = await import('../api.js')
+    await expect(sendChat('тест')).rejects.toThrow()
+  })
+})
+
+describe('checkFileSize', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn())
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('throws immediately for files over 10MB without fetching', async () => {
+    const bigFile = { size: 11 * 1024 * 1024, name: 'big.jpg' }
+    const { analyzePhoto } = await import('../api.js')
+    let threw = false
+    try {
+      await analyzePhoto(bigFile)
+    } catch (e) {
+      threw = true
+      expect(e.message).toMatch('слишком большой')
+    }
+    expect(threw).toBe(true)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('does not throw for files under 10MB', async () => {
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ description: 'test', nutrition: {}, confidence: 'high' }),
+    })
+    const smallFile = { size: 1 * 1024 * 1024, name: 'small.jpg' }
+    const { analyzePhoto } = await import('../api.js')
+    // Should not throw from size check (may fail for other reasons)
+    await analyzePhoto(smallFile).catch(() => {})
+    expect(fetch).toHaveBeenCalled()
+  })
 })

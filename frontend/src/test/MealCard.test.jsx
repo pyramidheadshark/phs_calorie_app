@@ -85,6 +85,34 @@ describe('MealCard — edit mode', () => {
   })
 })
 
+describe('MealCard — edit date field', () => {
+  it('shows date input in edit mode', async () => {
+    const user = userEvent.setup()
+    render(<MealCard meal={fakeMeal} />)
+    await user.click(screen.getByText('✏️'))
+    const dateInput = document.querySelector('input[type="date"]')
+    expect(dateInput).toBeInTheDocument()
+    expect(dateInput.value).toBe('2026-03-05')
+  })
+
+  it('sends logged_at with T12:00:00Z when date is set', async () => {
+    const user = userEvent.setup()
+    const updated = { ...fakeMeal }
+    updateMeal.mockResolvedValueOnce(updated)
+    const onUpdated = vi.fn()
+
+    render(<MealCard meal={fakeMeal} onUpdated={onUpdated} />)
+    await user.click(screen.getByText('✏️'))
+    await user.click(screen.getByText('Сохранить'))
+
+    await waitFor(() => {
+      expect(updateMeal).toHaveBeenCalledWith('meal-123', expect.objectContaining({
+        logged_at: '2026-03-05T12:00:00Z',
+      }))
+    })
+  })
+})
+
 describe('MealCard — delete confirm', () => {
   it('shows inline confirm on trash click', async () => {
     const user = userEvent.setup()

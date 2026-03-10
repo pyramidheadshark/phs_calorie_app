@@ -32,6 +32,7 @@ vi.mock('../api.js', () => ({
     meals: [],
     total_nutrition: { calories: 0, protein_g: 0, fat_g: 0, carbs_g: 0 },
   }),
+  sendChat: vi.fn().mockResolvedValue({ reply: 'Тестовый ответ ассистента' }),
   getStreak: vi.fn().mockResolvedValue({ streak_days: 3 }),
   getHistory: vi.fn().mockResolvedValue({
     days: [{ date: '2026-03-05', meal_count: 3, calories: 1800 }],
@@ -80,6 +81,7 @@ import History from '../pages/History.jsx'
 import Analytics from '../pages/Analytics.jsx'
 import Profile from '../pages/Profile.jsx'
 import AddMeal from '../pages/AddMeal.jsx'
+import Chat from '../pages/Chat.jsx'
 
 function Wrap({ children }) {
   return <MemoryRouter>{children}</MemoryRouter>
@@ -274,6 +276,81 @@ describe('AddMeal page — past date mode', () => {
       expect(confirmMeal).toHaveBeenCalledWith(expect.objectContaining({
         logged_at: '2026-03-01T12:00:00Z',
       }))
+    })
+  })
+})
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+
+// jsdom doesn't implement scrollIntoView
+beforeAll(() => {
+  window.HTMLElement.prototype.scrollIntoView = vi.fn()
+})
+
+describe('Chat page', () => {
+  it('renders without crashing', async () => {
+    render(<Wrap><Chat /></Wrap>)
+    await waitFor(() => expect(document.body).toBeInTheDocument())
+  })
+
+  it('renders header text', async () => {
+    render(<Wrap><Chat /></Wrap>)
+    await waitFor(() => {
+      expect(screen.getByText('Нутри-ассистент')).toBeInTheDocument()
+    })
+  })
+
+  it('renders send button', async () => {
+    render(<Wrap><Chat /></Wrap>)
+    await waitFor(() => {
+      expect(screen.getByRole('button')).toBeInTheDocument()
+    })
+  })
+
+  it('shows greeting message on mount', async () => {
+    render(<Wrap><Chat /></Wrap>)
+    await waitFor(() => {
+      // Should show some greeting from assistant
+      expect(document.body.textContent).toMatch(/Привет/)
+    })
+  })
+
+  it('send button is disabled when input is empty', async () => {
+    render(<Wrap><Chat /></Wrap>)
+    await waitFor(() => {
+      const sendBtn = screen.getByRole('button')
+      expect(sendBtn).toBeDisabled()
+    })
+  })
+
+  it('sends message and shows reply', async () => {
+    const { sendChat } = await import('../api.js')
+    const user = userEvent.setup()
+    render(<Wrap><Chat /></Wrap>)
+
+    // Wait for greeting
+    await waitFor(() => screen.getByText(/Привет/))
+
+    const input = screen.getByPlaceholderText(/сообщение/i)
+    await user.type(input, 'Что мне поесть?')
+    await user.click(screen.getByRole('button'))
+
+    await waitFor(() => {
+      expect(sendChat).toHaveBeenCalledWith('Что мне поесть?')
+      expect(screen.getByText('Тестовый ответ ассистента')).toBeInTheDocument()
+    })
+  })
+
+  it('shows calorie progress in greeting when meals exist', async () => {
+    const { getDaily } = await import('../api.js')
+    getDaily.mockResolvedValueOnce({
+      meals: [],
+      total_nutrition: { calories: 800, protein_g: 40, fat_g: 20, carbs_g: 100 },
+    })
+
+    render(<Wrap><Chat /></Wrap>)
+    await waitFor(() => {
+      expect(document.body.textContent).toMatch(/800/)
     })
   })
 })
