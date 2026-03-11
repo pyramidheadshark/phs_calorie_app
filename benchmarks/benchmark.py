@@ -136,7 +136,7 @@ def run_text_benchmark(
     delay: float,
     offset: int = 0,
 ) -> list[FoodResult]:
-    foods = FOODS[offset:offset + limit]
+    foods = FOODS[offset : offset + limit]
     results: list[FoodResult] = []
 
     with httpx.Client(base_url=api_url, timeout=30.0, trust_env=False) as client:

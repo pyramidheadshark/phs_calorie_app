@@ -183,9 +183,7 @@ class TestAnalyzePhoto:
 
         call_kwargs = mock_client.post.call_args.kwargs
         payload = call_kwargs.get("json", call_kwargs.get("data", {}))
-        text_part = next(
-            p for p in payload["messages"][0]["content"] if p["type"] == "text"
-        )
+        text_part = next(p for p in payload["messages"][0]["content"] if p["type"] == "text")
         assert "это пицца" in text_part["text"]
 
     async def test_uses_data_url(self, adapter: GeminiAdapter) -> None:
@@ -194,9 +192,7 @@ class TestAnalyzePhoto:
             await adapter.analyze_photo(b"img", mime_type="image/webp")
 
         payload = mock_client.post.call_args.kwargs.get("json", {})
-        image_part = next(
-            p for p in payload["messages"][0]["content"] if p["type"] == "image_url"
-        )
+        image_part = next(p for p in payload["messages"][0]["content"] if p["type"] == "image_url")
         assert image_part["image_url"]["url"].startswith("data:image/webp;base64,")
 
 
@@ -228,9 +224,7 @@ class TestAnalyzeCombo:
             "calorie_app.adapters.gemini.httpx.AsyncClient",
             return_value=_make_mock_client(_NUTRITION_JSON),
         ):
-            result = await adapter.analyze_combo(
-                b"img", "image/jpeg", b"audio", "audio/webm"
-            )
+            result = await adapter.analyze_combo(b"img", "image/jpeg", b"audio", "audio/webm")
 
         assert result.nutrition.calories == 400
 

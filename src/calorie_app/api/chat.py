@@ -22,7 +22,7 @@ async def chat(
     session: AsyncSession = Depends(get_session),
 ) -> ChatResponse:
     repo = MealRepo(session)
-    today = str(date.today())
+    today = date.today()
     meals = await repo.get_by_date(current_user.telegram_id, today)
 
     today_cal = sum(m.nutrition.calories for m in meals)
@@ -51,7 +51,7 @@ async def chat(
             protein_target=s.macro_targets.protein_g,
             fat_target=s.macro_targets.fat_g,
             carbs_target=s.macro_targets.carbs_g,
-            date=today,
+            date=str(today),
             today_calories=today_cal,
             today_protein=today_protein,
             today_fat=today_fat,

@@ -173,8 +173,9 @@ class TestMealRepo:
         await self._setup_user(user_repo, uid)
         await meal_repo.save(_make_meal(uid, calories=1000))
         await meal_repo.save(_make_meal(uid, calories=500))
-        summary = await meal_repo.get_history_summary(uid)
+        summary, total = await meal_repo.get_history_summary(uid)
         assert len(summary) == 1
+        assert total == 1
         assert summary[0]["calories"] == 1500
         assert summary[0]["meal_count"] == 2
 

@@ -56,11 +56,15 @@ class TestChatEndpoint:
         ):
             mock_repo = AsyncMock()
             mock_repo.get_by_date = AsyncMock(return_value=[_make_meal()])
-            mock_repo.get_weekly_summary = AsyncMock(return_value=[{"calories": 1800}, {"calories": 2000}])
+            mock_repo.get_weekly_summary = AsyncMock(
+                return_value=[{"calories": 1800}, {"calories": 2000}]
+            )
             MockRepo.return_value = mock_repo
             mock_gemini.chat = AsyncMock(return_value="Хороший вопрос! Рекомендую добавить белка.")
 
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
                 resp = await client.post("/api/chat", json={"message": "Что мне поесть?"})
 
         assert resp.status_code == 200
@@ -79,7 +83,9 @@ class TestChatEndpoint:
             MockRepo.return_value = mock_repo
             mock_gemini.chat = AsyncMock(return_value="Сегодня вы ещё ничего не ели.")
 
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
                 resp = await client.post("/api/chat", json={"message": "Что у меня сегодня?"})
 
         assert resp.status_code == 200
@@ -102,7 +108,9 @@ class TestChatEndpoint:
             MockRepo.return_value = mock_repo
             mock_gemini.chat = AsyncMock(return_value="Ответ")
 
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
                 await client.post("/api/chat", json={"message": "Как моя неделя?"})
 
         call_kwargs = mock_gemini.chat.call_args.kwargs
@@ -120,7 +128,9 @@ class TestChatEndpoint:
             MockRepo.return_value = mock_repo
             mock_gemini.chat = AsyncMock(return_value="Ответ")
 
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
                 await client.post("/api/chat", json={"message": "тест"})
 
         call_kwargs = mock_gemini.chat.call_args.kwargs
@@ -142,7 +152,9 @@ class TestChatEndpoint:
             MockRepo.return_value = mock_repo
             mock_gemini.chat = AsyncMock(side_effect=RuntimeError("Gemini down"))
 
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
                 resp = await client.post("/api/chat", json={"message": "тест"})
 
         assert resp.status_code == 502
